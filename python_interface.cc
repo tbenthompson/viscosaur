@@ -13,11 +13,11 @@ namespace vc = viscosaur;
 BOOST_PYTHON_MODULE(viscosaur)
 {
     using namespace boost::python;
-    class_<vc::TwoLayerAnalytic>("TwoLayerAnalytic", 
-            init<double, double, double, double,
-                     double (*)(double)>())
-        .def("simple_velocity", &vc::TwoLayerAnalytic::simple_velocity)
-        .def("simple_stress", &vc::TwoLayerAnalytic::simple_stress)
-        .def("integral_velocity", &vc::TwoLayerAnalytic::integral_velocity)
-        .def("integral_stress", &vc::TwoLayerAnalytic::integral_stress);
+    // class_<vc::TwoLayerAnalytic>("TwoLayerAnalytic", 
+    //         init<double, double, double, double,
+    //                  double (*)(double)>())
+    //     .def("simple_velocity", &vc::TwoLayerAnalytic::simple_velocity)
+    //     .def("simple_stress", &vc::TwoLayerAnalytic::simple_stress)
+    //     .def("integral_velocity", &vc::TwoLayerAnalytic::integral_velocity)
+    //     .def("integral_stress", &vc::TwoLayerAnalytic::integral_stress);
 }

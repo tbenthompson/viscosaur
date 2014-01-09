@@ -322,15 +322,23 @@ int main(int argc, char *argv[])
         double shear_modulus = 30.0e9;
         double viscosity = 5.0e19;
         
-        TwoLayerAnalytic* abc = new TwoLayerAnalytic(fault_slip,
+        TwoLayerAnalytic* tla = new TwoLayerAnalytic(fault_slip,
                 fault_depth, shear_modulus, viscosity, constant_slip);
-        double def = abc->integral_velocity(1000.0, 10000.0, 1.0);
-        boost::array<double, 2> fff = abc->simple_stress(1.0, 10000.0);
-        std::cout << def << "   " << abc->simple_velocity(1000.0, 10000.0, 1.0) << std::endl;
-        std::cout << fff[0] << "    " << fff[1] << std::endl;
-        fff = abc->integral_stress(1.0, 10000.0);
-        std::cout << fff[0] << "    " << fff[1] << std::endl;
-        delete abc;
+        // boost::array<double, 2> fff = abc->simple_stress(1.0, 10000.0);
+        // std::cout << def << "   " << abc->simple_velocity(1000.0, 10000.0, 1.0) << std::endl;
+        // std::cout << fff[0] << "    " << fff[1] << std::endl;
+        // fff = abc->integral_stress(1.0, 10000.0);
+        // std::cout << fff[0] << "    " << fff[1] << std::endl;
+        boost::array<boost::array<double, 50>, 50> vels;
+        for (int i = 0; i < 50; i++) 
+        {
+            for (int j = 0; j < 50; j++) 
+            {
+                 vels[i][j] = tla->integral_velocity(10.0 + 500.0 * i, 0.0 + 500 * j, 0.0);
+                 std::cout << vels[i][j] << std::endl;
+            }
+        }
+        delete tla;
         // return 1;
 
         // Utilities::MPI::MPI_InitFinalize mpi_initialization(argc, argv, 1);

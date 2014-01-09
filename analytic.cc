@@ -1,15 +1,38 @@
 #define PI 3.14159265358979323846
-#include <boost/array.hpp>
 #include <math.h>
+#include <gsl/gsl_integration.h>
 #include "elastic_stress.h"
 
 namespace viscosaur
 {
+    SlipFnc::SlipFnc(double D)
+    {
+        this->D = D;
+    }
+
+    double ConstantSlipFnc::call(double z)
+    {
+        if (z > this->D)
+        {
+            return 0.0;
+        }
+        return 1.0;
+    }
+
+    double CosSlipFnc::call(double z)
+    {
+        if (z > this->D)
+        {
+            return 0.0;
+        }
+        return cos(z * PI / (2 * this->D));
+    }
+
     TwoLayerAnalytic::TwoLayerAnalytic(double fault_slip,
                              double fault_depth,
                              double shear_modulus,
                              double viscosity,
-                             double (*slip_fnc)(double))
+                             SlipFnc slip_fnc)
     {
         this->fault_slip = fault_slip;
         this->fault_depth = fault_depth;

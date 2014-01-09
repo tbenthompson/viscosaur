@@ -40,7 +40,7 @@ namespace LA
 
 #include <deal.II/base/utilities.h>
 #include <deal.II/base/conditional_ostream.h>
-#include <deal.II/base/index_set.h>
+// #include <deal.II/base/index_set.h>
 #include <deal.II/lac/sparsity_tools.h>
 #include <deal.II/distributed/tria.h>
 #include <deal.II/distributed/grid_refinement.h>
@@ -50,10 +50,10 @@ namespace LA
 
 #include "elastic_stress.h"
 
+// TODO: Clean up this header file. Pimpl it.
 namespace viscosaur
 {
     using namespace dealii;
-
 
     template <int dim>
     class Controller
