@@ -1,3 +1,6 @@
+// All includes are in core.h 
+// This may be bad coding practice but it's much cleaner to deal with the
+// file this way.
 #include "core.h"
 
 namespace viscosaur
@@ -279,7 +282,7 @@ namespace viscosaur
             if (Utilities::MPI::n_mpi_processes(mpi_communicator) <= 32)
             {
                 TimerOutput::Scope t(computing_timer, "output");
-                output_results (cycle);
+                // output_results (cycle);
             }
 
             pcout << std::endl;
@@ -290,6 +293,15 @@ namespace viscosaur
     }
 }
 
+
+double constant_slip(double z)
+{
+    if (z > 10000)
+    {
+        return 0.0;
+    }
+    return 1.0;
+}
 
 
 int main(int argc, char *argv[])
@@ -311,19 +323,23 @@ int main(int argc, char *argv[])
         double viscosity = 5.0e19;
         
         TwoLayerAnalytic* abc = new TwoLayerAnalytic(fault_slip,
-                fault_depth, shear_modulus, viscosity);
-        double def = abc->velocity(1000.0, 10000.0, 1.0);
-        boost::array<double, 2> fff = abc->initial_stress(1.0, 10000.0);
-        std::cout << def << std::endl;
+                fault_depth, shear_modulus, viscosity, constant_slip);
+        double def = abc->integral_velocity(1000.0, 10000.0, 1.0);
+        boost::array<double, 2> fff = abc->simple_stress(1.0, 10000.0);
+        std::cout << def << "   " << abc->simple_velocity(1000.0, 10000.0, 1.0) << std::endl;
+        std::cout << fff[0] << "    " << fff[1] << std::endl;
+        fff = abc->integral_stress(1.0, 10000.0);
         std::cout << fff[0] << "    " << fff[1] << std::endl;
         delete abc;
-        Utilities::MPI::MPI_InitFinalize mpi_initialization(argc, argv, 1);
-        deallog.depth_console (0);
+        // return 1;
 
-        {
-            Controller<2> laplace_problem_2d;
-            laplace_problem_2d.run ();
-        }
+        // Utilities::MPI::MPI_InitFinalize mpi_initialization(argc, argv, 1);
+        // deallog.depth_console (0);
+
+        // {
+        //     Controller<2> laplace_problem_2d;
+        //     laplace_problem_2d.run ();
+        // }
     }
     catch (std::exception &exc)
     {
