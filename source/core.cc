@@ -294,14 +294,6 @@ namespace viscosaur
 }
 
 
-double constant_slip(double z)
-{
-    if (z > 10000)
-    {
-        return 0.0;
-    }
-    return 1.0;
-}
 
 
 int main(int argc, char *argv[])
@@ -322,8 +314,9 @@ int main(int argc, char *argv[])
         double shear_modulus = 30.0e9;
         double viscosity = 5.0e19;
         
+        ConstantSlipFnc const_slip(fault_depth);
         TwoLayerAnalytic* tla = new TwoLayerAnalytic(fault_slip,
-                fault_depth, shear_modulus, viscosity, constant_slip);
+                fault_depth, shear_modulus, viscosity, const_slip);
         // boost::array<double, 2> fff = abc->simple_stress(1.0, 10000.0);
         // std::cout << def << "   " << abc->simple_velocity(1000.0, 10000.0, 1.0) << std::endl;
         // std::cout << fff[0] << "    " << fff[1] << std::endl;
@@ -334,10 +327,11 @@ int main(int argc, char *argv[])
         {
             for (int j = 0; j < 50; j++) 
             {
-                 vels[i][j] = tla->integral_velocity(10.0 + 500.0 * i, 0.0 + 500 * j, 0.0);
+                 vels[i][j] = tla->integral_velocity(10.0 + 5000.0 * i, 0.0 + 5000 * j, 0.0);
                  std::cout << vels[i][j] << std::endl;
             }
         }
+
         delete tla;
         // return 1;
 

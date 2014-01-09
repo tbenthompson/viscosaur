@@ -1,7 +1,6 @@
 #define PI 3.14159265358979323846
 #include <math.h>
-#include <gsl/gsl_integration.h>
-#include "elastic_stress.h"
+#include "analytic.h"
 
 namespace viscosaur
 {
@@ -32,14 +31,14 @@ namespace viscosaur
                              double fault_depth,
                              double shear_modulus,
                              double viscosity,
-                             SlipFnc slip_fnc)
+                             SlipFnc &slip_fnc)
     {
         this->fault_slip = fault_slip;
         this->fault_depth = fault_depth;
         this->shear_modulus = shear_modulus;
         this->viscosity = viscosity;
         this->images = 20;
-        this->slip_fnc = slip_fnc;
+        this->slip_fnc = &slip_fnc;
         this->integration = gsl_integration_workspace_alloc(1000); 
     }
 
@@ -130,57 +129,61 @@ namespace viscosaur
         double y;
         double D;
         int m;
-        double (*s)(double);
+        SlipFnc* s;
     };
 
     double term_1_fnc_low(double z, void * params)
     {
         AnalyticFncParameters* p = static_cast<AnalyticFncParameters*>(params);
-        return p->s(z) * p->x / (pow(z + (2 * p->m) * p->D + p->y,2 ) + pow(p->x, 2));
+        return p->s->call(z) * p->x / (pow(z + (2 * p->m) * p->D + p->y,2 ) + pow(p->x, 2));
     }
 
     double term_2_fnc_low(double z, void * params)
     {
         AnalyticFncParameters* p = static_cast<AnalyticFncParameters*>(params);
-        return p->s(z) * p->x / (pow(-z + (2 * p->m) * p->D + p->y, 2) + pow(p->x, 2));
+        return p->s->call(z) * p->x / (pow(-z + (2 * p->m) * p->D + p->y, 2) + pow(p->x, 2));
     }
 
     double term_3_fnc_low(double z, void * params)
     {
         AnalyticFncParameters* p = static_cast<AnalyticFncParameters*>(params);
-        return p->s(z) * p->x / (pow(z + (2 * p->m - 2) * p->D + p->y, 2) + pow(p->x, 2));
+        return p->s->call(z) * p->x / (pow(z + (2 * p->m - 2) * p->D + p->y, 2) + pow(p->x, 2));
     }
 
     double term_4_fnc_low(double z, void * params)
     {
         AnalyticFncParameters* p = static_cast<AnalyticFncParameters*>(params);
-        return p->s(z) * p->x / (pow(-z + (2 * p->m - 2) * p->D + p->y, 2) + pow(p->x, 2));
+        return p->s->call(z) * p->x / (pow(-z + (2 * p->m - 2) * p->D + p->y, 2) + pow(p->x, 2));
     }
 
     double term_1_fnc_up(double z, void * params)
     {
         AnalyticFncParameters* p = static_cast<AnalyticFncParameters*>(params);
-        return p->s(z) * p->x / (pow(z + (2 * p->m) * p->D + p->y, 2) + pow(p->x, 2));
+        return p->s->call(z) * p->x / (pow(z + (2 * p->m) * p->D + p->y, 2) + pow(p->x, 2));
     }
 
     double term_2_fnc_up(double z, void * params)
     {
         AnalyticFncParameters* p = static_cast<AnalyticFncParameters*>(params);
-        return p->s(z) * p->x / (pow(-z + (2 * p->m) * p->D + p->y, 2) + pow(p->x, 2));
+        return p->s->call(z) * p->x / (pow(-z + (2 * p->m) * p->D + p->y, 2) + pow(p->x, 2));
     }
 
     double term_3_fnc_up(double z, void * params)
     {
         AnalyticFncParameters* p = static_cast<AnalyticFncParameters*>(params);
-        return p->s(z) * p->x / (pow(z + (2 * p->m) * p->D - p->y, 2) + pow(p->x, 2));
+        return p->s->call(z) * p->x / (pow(z + (2 * p->m) * p->D - p->y, 2) + pow(p->x, 2));
     }
 
     double term_4_fnc_up(double z, void * params)
     {
         AnalyticFncParameters* p = static_cast<AnalyticFncParameters*>(params);
-        return p->s(z) * p->x / (pow(-z + (2 * p->m) * p->D - p->y, 2) + pow(p->x, 2));
+        return p->s->call(z) * p->x / (pow(-z + (2 * p->m) * p->D - p->y, 2) + pow(p->x, 2));
     }
 
+    /*
+     * TODO: Known bug caused by integral_velocity(10000.0, 100000.0, 1.0)
+     * Probably an overflow
+     */
     double TwoLayerAnalytic::integral_velocity(double x, double y, double t) 
     {
         double v = 0.0;
@@ -210,7 +213,7 @@ namespace viscosaur
                                       &int_result, 
                                       &int_error);
                 term1 = int_result + 
-                    slip_fnc(0) * atan(((2 * m) * this->fault_depth + y) / x);
+                    slip_fnc->call(0) * atan(((2 * m) * this->fault_depth + y) / x);
 
                 F.function = &term_2_fnc_low;
                 gsl_integration_qags (&F, 0, this->fault_depth,
@@ -219,7 +222,7 @@ namespace viscosaur
                                       &int_result, 
                                       &int_error);
                 term2 = int_result - 
-                    slip_fnc(0) * atan(((2 * m) * this->fault_depth + y) / x);
+                    slip_fnc->call(0) * atan(((2 * m) * this->fault_depth + y) / x);
 
                 F.function = &term_3_fnc_low;
                 gsl_integration_qags (&F, 0, this->fault_depth,
@@ -228,7 +231,7 @@ namespace viscosaur
                                       &int_result, 
                                       &int_error);
                 term3 = int_result + 
-                    slip_fnc(0) * 
+                    slip_fnc->call(0) * 
                     atan(((2 * m - 2) * this->fault_depth + y) / x);
 
                 F.function = &term_4_fnc_low;
@@ -238,7 +241,7 @@ namespace viscosaur
                                       &int_result, 
                                       &int_error);
                 term4 = int_result - 
-                    slip_fnc(0) * 
+                    slip_fnc->call(0) * 
                     atan(((2 * m - 2) * this->fault_depth + y) / x);
 
                 v += factor * (term1 + term2 + term3 + term4);
@@ -248,22 +251,22 @@ namespace viscosaur
                 F.function = &term_1_fnc_up;
                 gsl_integration_qags (&F, 0, this->fault_depth,
                         0, 1e-7, 1000, this->integration, &int_result, &int_error);
-                term1 = int_result + slip_fnc(0) * atan(((2 * m) * this->fault_depth + y) / x);
+                term1 = int_result + slip_fnc->call(0) * atan(((2 * m) * this->fault_depth + y) / x);
 
                 F.function = &term_2_fnc_up;
                 gsl_integration_qags (&F, 0, this->fault_depth,
                         0, 1e-7, 1000, this->integration, &int_result, &int_error);
-                term2 = int_result - slip_fnc(0) * atan(((2 * m) * this->fault_depth + y) / x);
+                term2 = int_result - slip_fnc->call(0) * atan(((2 * m) * this->fault_depth + y) / x);
 
                 F.function = &term_3_fnc_up;
                 gsl_integration_qags (&F, 0, this->fault_depth,
                         0, 1e-7, 1000, this->integration, &int_result, &int_error);
-                term3 = int_result + slip_fnc(0) * atan(((2 * m) * this->fault_depth - y) / x);
+                term3 = int_result + slip_fnc->call(0) * atan(((2 * m) * this->fault_depth - y) / x);
 
                 F.function = &term_4_fnc_up;
                 gsl_integration_qags (&F, 0, this->fault_depth,
                         0, 1e-7, 1000, this->integration, &int_result, &int_error);
-                term4 = int_result - slip_fnc(0) * atan(((2 * m) * this->fault_depth - y) / x);
+                term4 = int_result - slip_fnc->call(0) * atan(((2 * m) * this->fault_depth - y) / x);
 
                 v += factor * (term1 + term2 + term3 + term4);
             }
@@ -276,28 +279,28 @@ namespace viscosaur
     double Szx_main_term_fnc(double z, void* params)
     {
         AnalyticFncParameters* p = static_cast<AnalyticFncParameters*>(params);
-        return p->s(z) * (pow(p->y - z, 2) - pow(p->x, 2)) / 
+        return p->s->call(z) * (pow(p->y - z, 2) - pow(p->x, 2)) / 
             pow((pow(p->y - z, 2) + pow(p->x, 2)), 2);
     }
 
     double Szx_image_term_fnc(double z, void* params)
     {
         AnalyticFncParameters* p = static_cast<AnalyticFncParameters*>(params);
-        return p->s(z) * (pow(p->y + z, 2) - pow(p->x, 2)) / 
+        return p->s->call(z) * (pow(p->y + z, 2) - pow(p->x, 2)) / 
             pow((pow(p->y + z, 2) + pow(p->x, 2)), 2);
     }
 
     double Szy_main_term_fnc(double z, void* params)
     {
         AnalyticFncParameters* p = static_cast<AnalyticFncParameters*>(params);
-        return p->s(z) * (-2 * p->x * (p->y - z)) / 
+        return p->s->call(z) * (-2 * p->x * (p->y - z)) / 
             pow((pow(p->y - z, 2) + pow(p->x, 2)), 2);
     }
 
     double Szy_image_term_fnc(double z, void* params)
     {
         AnalyticFncParameters* p = static_cast<AnalyticFncParameters*>(params);
-        return p->s(z) * (-2 * p->x * (p->y + z)) /
+        return p->s->call(z) * (-2 * p->x * (p->y + z)) /
             pow((pow(p->y + z, 2) + pow(p->x, 2)), 2);
     }
 

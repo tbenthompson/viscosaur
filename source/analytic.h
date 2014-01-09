@@ -1,7 +1,7 @@
 #include <string>
 #include <boost/array.hpp>
+#include <gsl/gsl_integration.h>
 
-class gsl_integration_workspace;
 namespace viscosaur
 {
     class SlipFnc
@@ -9,19 +9,21 @@ namespace viscosaur
         public:
             SlipFnc(double D);
             virtual double call(double z) = 0;
-        private:
+        protected:
             double D;
     };
 
-    class ConstantSlipFnc
+    class ConstantSlipFnc: public SlipFnc
     {
         public:
+            ConstantSlipFnc(double D): SlipFnc(D) {}
             double call(double z);
     };
 
-    class CosSlipFnc
+    class CosSlipFnc: public SlipFnc
     {
         public:
+            CosSlipFnc(double D): SlipFnc(D) {}
             double call(double z);
     };
 
@@ -32,7 +34,7 @@ namespace viscosaur
                              double fault_depth,
                              double shear_modulus,
                              double viscosity,
-                             SlipFnc* slip_fnc);
+                             SlipFnc &slip_fnc);
             ~TwoLayerAnalytic();
 
             double simple_velocity(double x, double y, double t);

@@ -48,7 +48,7 @@ namespace LA
 #include <fstream>
 #include <iostream>
 
-#include "elastic_stress.h"
+#include "analytic.h"
 
 // TODO: Clean up this header file. Pimpl it.
 namespace viscosaur
