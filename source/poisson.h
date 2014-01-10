@@ -10,6 +10,9 @@
 // about twice as fast as PETSc. This is probably an artifact of some 
 // configurations, so flip this flag to try out PETSc (assuming it's
 // installed and deal.II is configured to use it). 
+// However, the python bindings are not set up for PETSc, so new 
+// bindings will need to be made. On the other hand, petsc4py
+// might be able to do the job.
 // #define USE_PETSC_LA
 
 namespace LA
@@ -61,10 +64,12 @@ namespace viscosaur
 {
     using namespace dealii;
 
-    class OutputHandler
+    /* Abstract base class for the RHS of the Poisson equation.
+     */
+    class PoissonRHS
     {
 
-    }
+    };
 
     /*
      * The Poisson Solver. Most of this code is extracted from tutorial 40
@@ -74,7 +79,7 @@ namespace viscosaur
      * Add some documentation...
      *
      * Note that this entire class is defined in the header. This is required
-     * for a templated class. C++11 may have fixed this. Check?
+     * for a templated class. C++11 may have "fixed" this. Check?
      */
     template <int dim>
     class Poisson
@@ -83,13 +88,15 @@ namespace viscosaur
             Poisson ();
             ~Poisson ();
 
-            void run ();
+            LA::MPI::Vector run (PoissonRHS rhs);
 
         private:
             void setup_system ();
-            void assemble_system ();
+            void assemble_system (PoissonRHS rhs);
             void solve ();
             void refine_grid ();
+            std::string output_filename(const unsigned int cycle,
+                                        const unsigned int subdomain) const;
             void output_results (const unsigned int cycle) const;
             void init_mesh ();
 
@@ -183,7 +190,7 @@ namespace viscosaur
 
 
     template <int dim>
-    void Poisson<dim>::assemble_system ()
+    void Poisson<dim>::assemble_system (PoissonRHS rhs)
     {
         TimerOutput::Scope t(computing_timer, "assembly");
 
@@ -205,45 +212,49 @@ namespace viscosaur
         typename DoFHandler<dim>::active_cell_iterator
             cell = dof_handler.begin_active(),
                  endc = dof_handler.end();
+
         for (; cell!=endc; ++cell)
         {
-            if (cell->is_locally_owned())
+            if (!cell->is_locally_owned())
             {
-                cell_matrix = 0;
-                cell_rhs = 0;
+                continue;
+            }
+            cell_matrix = 0;
+            cell_rhs = 0;
 
-                fe_values.reinit (cell);
+            fe_values.reinit (cell);
 
-                for (unsigned int q_point=0; q_point<n_q_points; ++q_point)
+            for (unsigned int q_point=0; q_point<n_q_points; ++q_point)
+            {
+                const double
+                    rhs_value
+                    = (fe_values.quadrature_point(q_point)[1]
+                            >
+                            0.5+0.25*std::sin(4.0 * numbers::PI *
+                                fe_values.quadrature_point(q_point)[0])
+                            ? 1 : -1);
+
+                for (unsigned int i=0; i<dofs_per_cell; ++i)
                 {
-                    const double
-                        rhs_value
-                        = (fe_values.quadrature_point(q_point)[1]
-                                >
-                                0.5+0.25*std::sin(4.0 * numbers::PI *
-                                    fe_values.quadrature_point(q_point)[0])
-                                ? 1 : -1);
-
-                    for (unsigned int i=0; i<dofs_per_cell; ++i)
+                    for (unsigned int j=0; j<dofs_per_cell; ++j)
                     {
-                        for (unsigned int j=0; j<dofs_per_cell; ++j)
-                            cell_matrix(i,j) += (fe_values.shape_grad(i,q_point) *
-                                    fe_values.shape_grad(j,q_point) *
-                                    fe_values.JxW(q_point));
-
-                        cell_rhs(i) += (rhs_value *
-                                fe_values.shape_value(i,q_point) *
+                        cell_matrix(i,j) += (fe_values.shape_grad(i,q_point) *
+                                fe_values.shape_grad(j,q_point) *
                                 fe_values.JxW(q_point));
                     }
-                }
 
-                cell->get_dof_indices (local_dof_indices);
-                constraints.distribute_local_to_global (cell_matrix,
-                        cell_rhs,
-                        local_dof_indices,
-                        system_matrix,
-                        system_rhs);
+                    cell_rhs(i) += (rhs_value *
+                            fe_values.shape_value(i,q_point) *
+                            fe_values.JxW(q_point));
+                }
             }
+
+            cell->get_dof_indices (local_dof_indices);
+            constraints.distribute_local_to_global (cell_matrix,
+                    cell_rhs,
+                    local_dof_indices,
+                    system_matrix,
+                    system_rhs);
         }
 
         system_matrix.compress (VectorOperation::add);
@@ -306,44 +317,52 @@ namespace viscosaur
     }
 
 
-
+    template <int dim>
+    std::string Poisson<dim>::output_filename(const unsigned int cycle,
+            const unsigned int subdomain) const
+    {
+        std::string filename = "solution-" +
+                Utilities::int_to_string(cycle, 2) +
+                "." +
+                Utilities::int_to_string(subdomain, 4);
+        return filename;
+    }
 
     template <int dim>
     void Poisson<dim>::output_results (const unsigned int cycle) const
     {
         DataOut<dim> data_out;
-        data_out.attach_dof_handler (dof_handler);
-        data_out.add_data_vector (locally_relevant_solution, "u");
+        data_out.attach_dof_handler(dof_handler);
+        data_out.add_data_vector(locally_relevant_solution, "u");
 
-        Vector<float> subdomain (triangulation.n_active_cells());
-        for (unsigned int i=0; i<subdomain.size(); ++i)
-            subdomain(i) = triangulation.locally_owned_subdomain();
-        data_out.add_data_vector (subdomain, "subdomain");
+        Vector<float> subdomain(triangulation.n_active_cells());
+        unsigned int this_subd = triangulation.locally_owned_subdomain();
+        for (unsigned int i = 0; i < subdomain.size(); ++i)
+            subdomain(i) = this_subd;
+        data_out.add_data_vector(subdomain, "subdomain");
 
-        data_out.build_patches ();
+        data_out.build_patches();
 
-        const std::string filename = ("solution-" +
-                Utilities::int_to_string (cycle, 2) +
-                "." +
-                Utilities::int_to_string
-                (triangulation.locally_owned_subdomain(), 4));
-        std::ofstream output ((filename + ".vtu").c_str());
-        data_out.write_vtu (output);
+        std::string this_f = output_filename(cycle, this_subd);
+        std::ofstream output(("data/" + this_f + ".vtu").c_str());
+        data_out.write_vtu(output);
 
         if (Utilities::MPI::this_mpi_process(mpi_communicator) == 0)
         {
+            // Build the list of filenames to store in the master pvtu file
             std::vector<std::string> filenames;
             for (unsigned int i=0;
                     i<Utilities::MPI::n_mpi_processes(mpi_communicator);
                     ++i)
-                filenames.push_back ("solution-" +
-                        Utilities::int_to_string (cycle, 2) +
-                        "." +
-                        Utilities::int_to_string (i, 4) +
-                        ".vtu");
+            {
+                std::string f = output_filename(cycle, i);
+                filenames.push_back (f + ".vtu");
+            }
 
-            std::ofstream master_output ((filename + ".pvtu").c_str());
-            data_out.write_pvtu_record (master_output, filenames);
+            std::ofstream master_output(("data/" + this_f + ".pvtu").c_str());
+            // Write the master pvtu record. Load this pvtu file if you want
+            // to view all the data at once. Use a tool like visit or paraview.
+            data_out.write_pvtu_record(master_output, filenames);
         }
     }
 
@@ -357,21 +376,23 @@ namespace viscosaur
     }
 
     template <int dim>
-    void Poisson<dim>::run ()
+    LA::MPI::Vector Poisson<dim>::run (PoissonRHS rhs)
     {
-        const unsigned int n_cycles = 10;
-        for (unsigned int cycle=0; cycle<n_cycles; ++cycle)
+        const unsigned int n_cycles = 6;
+        for (unsigned int cycle = 0; cycle < n_cycles; ++cycle)
         {
             pcout << "Cycle " << cycle << ':' << std::endl;
 
             if (cycle == 0)
             {
-                init_mesh ();
+                init_mesh();
             }
             else
-                refine_grid ();
+            {
+                refine_grid();
+            }
 
-            setup_system ();
+            setup_system();
 
             pcout << "   Number of active cells:       "
                 << triangulation.n_global_active_cells()
@@ -380,20 +401,23 @@ namespace viscosaur
                 << dof_handler.n_dofs()
                 << std::endl;
 
-            assemble_system ();
-            solve ();
+            // Build the matrices
+            assemble_system(rhs);
+
+            // Solve the linear system.
+            solve();
 
             if (Utilities::MPI::n_mpi_processes(mpi_communicator) <= 32)
             {
                 TimerOutput::Scope t(computing_timer, "output");
-                // output_results (cycle);
+                output_results (cycle);
             }
 
             pcout << std::endl;
             computing_timer.print_summary ();
             computing_timer.reset ();
         }
-
+        return locally_relevant_solution;
     }
 }
 #endif

@@ -1,0 +1,50 @@
+{
+
+
+
+
+
+
+    "creator": "Ben Thompson <t.ben.thompson@gmail.com>", 
+
+
+
+
+
+
+    "reporter": "Ben Thompson <t.ben.thompson@gmail.com>", 
+
+
+
+
+
+
+    "severity": "minor", 
+
+
+
+
+
+
+    "status": "open", 
+
+
+
+
+
+
+    "summary": "Think about compiler-time reduction methods. Pimpl", 
+
+
+
+
+
+
+    "time": "Fri, 10 Jan 2014 03:29:14 +0000"
+
+
+
+
+
+
+}

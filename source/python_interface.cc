@@ -50,6 +50,8 @@ BOOST_PYTHON_MODULE(viscosaur)
      * boost::noncopyable is required, because the copy constructor of some
      * of the private members of Poisson are private
      */ 
+    class_<dealii::TrilinosWrappers::MPI::Vector>("TrilinosVector", no_init);
+    class_<vc::PoissonRHS>("PoissonRHS", init<>());
     class_<vc::Poisson<2>, boost::noncopyable>("Poisson2D", init<>())
         .def("run", &vc::Poisson<2>::run);
     class_<vc::Poisson<3>, boost::noncopyable>("Poisson3D", init<>())

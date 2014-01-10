@@ -621,45 +621,45 @@ namespace Step48
 // threads automatically, typically to the number of available cores in the
 // system. As an alternative, you can also set this number manually if you
 // want to set a specific number of threads (e.g. when MPI-only is required).
-int main (int argc, char **argv)
-{
-  using namespace Step48;
-  using namespace dealii;
-
-  Utilities::System::MPI_InitFinalize mpi_initialization(argc, argv,
-                                                         numbers::invalid_unsigned_int);
-
-  try
-    {
-      deallog.depth_console (0);
-
-      SineGordonProblem<dimension> sg_problem;
-      sg_problem.run ();
-    }
-  catch (std::exception &exc)
-    {
-      std::cerr << std::endl << std::endl
-                << "----------------------------------------------------"
-                << std::endl;
-      std::cerr << "Exception on processing: " << std::endl
-                << exc.what() << std::endl
-                << "Aborting!" << std::endl
-                << "----------------------------------------------------"
-                << std::endl;
-
-      return 1;
-    }
-  catch (...)
-    {
-      std::cerr << std::endl << std::endl
-                << "----------------------------------------------------"
-                << std::endl;
-      std::cerr << "Unknown exception!" << std::endl
-                << "Aborting!" << std::endl
-                << "----------------------------------------------------"
-                << std::endl;
-      return 1;
-    }
-
-  return 0;
-}
+// int main (int argc, char **argv)
+// {
+//   using namespace Step48;
+//   using namespace dealii;
+// 
+//   Utilities::System::MPI_InitFinalize mpi_initialization(argc, argv,
+//                                                          numbers::invalid_unsigned_int);
+// 
+//   try
+//     {
+//       deallog.depth_console (0);
+// 
+//       SineGordonProblem<dimension> sg_problem;
+//       sg_problem.run ();
+//     }
+//   catch (std::exception &exc)
+//     {
+//       std::cerr << std::endl << std::endl
+//                 << "----------------------------------------------------"
+//                 << std::endl;
+//       std::cerr << "Exception on processing: " << std::endl
+//                 << exc.what() << std::endl
+//                 << "Aborting!" << std::endl
+//                 << "----------------------------------------------------"
+//                 << std::endl;
+// 
+//       return 1;
+//     }
+//   catch (...)
+//     {
+//       std::cerr << std::endl << std::endl
+//                 << "----------------------------------------------------"
+//                 << std::endl;
+//       std::cerr << "Unknown exception!" << std::endl
+//                 << "Aborting!" << std::endl
+//                 << "----------------------------------------------------"
+//                 << std::endl;
+//       return 1;
+//     }
+// 
+//   return 0;
+// }
