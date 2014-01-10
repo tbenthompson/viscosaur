@@ -9,7 +9,7 @@ namespace viscosaur
      * https://wiki.python.org/moin/boost.python/HowTo#Multithreading_Support_for_my_function 
      * Frees the Python global interpreter lock (GIL) so that multithreading
      * can be performed in C++.
-     * Currently unused. Consider removing?
+     * Currently unused. Consider removing? Or move to some utilites file?
      */
     class ScopedGILRelease
     {

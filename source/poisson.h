@@ -6,6 +6,10 @@
 
 #include <deal.II/lac/generic_linear_algebra.h>
 
+// On my current machine, Trilinos linear algebra seems to be
+// about twice as fast as PETSc. This is probably an artifact of some 
+// configurations, so flip this flag to try out PETSc (assuming it's
+// installed and deal.II is configured to use it). 
 // #define USE_PETSC_LA
 
 namespace LA
@@ -57,6 +61,11 @@ namespace viscosaur
 {
     using namespace dealii;
 
+    class OutputHandler
+    {
+
+    }
+
     /*
      * The Poisson Solver. Most of this code is extracted from tutorial 40
      * on the deal.ii website. Currently located at
@@ -85,8 +94,7 @@ namespace viscosaur
             void init_mesh ();
 
             MPI_Comm              mpi_communicator;
-            parallel::distributed::Triangulation<dim>
-                                  triangulation;
+            parallel::distributed::Triangulation<dim> triangulation;
             DoFHandler<dim>       dof_handler;
             FE_Q<dim>             fe;
             IndexSet              locally_owned_dofs;

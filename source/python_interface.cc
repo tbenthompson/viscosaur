@@ -10,7 +10,7 @@
 
 #include "analytic.h"
 #include "poisson.h"
-#include "control.h"dealii::Utilities::MPI::MPI_InitFinalize
+#include "control.h"
 namespace vc = viscosaur;
 
 BOOST_PYTHON_MODULE(viscosaur)
