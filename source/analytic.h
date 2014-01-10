@@ -1,3 +1,5 @@
+#ifndef __viscosaur_analytic_h
+#define __viscosaur_analytic_h
 #include <string>
 #include <boost/array.hpp>
 #include <gsl/gsl_integration.h>
@@ -54,3 +56,4 @@ namespace viscosaur
             gsl_integration_workspace* integration;
     };
 }
+#endif
