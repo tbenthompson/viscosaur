@@ -87,7 +87,7 @@ namespace viscosaur
 
     /* Currently, this must remain a compile constant.
      */
-    const unsigned int fe_degree = 12;
+    const unsigned int fe_degree = 7;
 
     /*
      * The Poisson Solver. Most of this code is extracted from tutorial 40
@@ -272,8 +272,6 @@ namespace viscosaur
                     system_matrix,
                     system_rhs);
         }
-        cout << "Zeros: " << z << std::endl;
-        cout << "Nonzeros: " << nz << std::endl;
 
         system_matrix.compress (VectorOperation::add);
         system_rhs.compress (VectorOperation::add);
@@ -399,13 +397,13 @@ namespace viscosaur
     void Poisson<dim>::init_mesh ()
     {
         GridGenerator::hyper_cube (triangulation);
-        triangulation.refine_global(3);
+        triangulation.refine_global(2);
     }
 
     template <int dim>
     LA::MPI::Vector Poisson<dim>::run (PoissonRHS<dim> rhs)
     {
-        const unsigned int n_cycles = 7;
+        const unsigned int n_cycles = 2;
         for (unsigned int cycle = 0; cycle < n_cycles; ++cycle)
         {
             pcout << "Cycle " << cycle << ':' << std::endl;
