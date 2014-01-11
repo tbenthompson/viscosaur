@@ -13,7 +13,7 @@ mpi = CDLL('libmpi.so.0', RTLD_GLOBAL)
 instance = vc.Vc(sys.argv)
 
 # Setup a 2D poisson solver.
-rhs = vc.PoissonRHS()
+rhs = vc.PoissonRHS2D()
 poisson = vc.Poisson2D()
 
 # Run a poisson solve

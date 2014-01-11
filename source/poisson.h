@@ -57,19 +57,37 @@ namespace LA
 #include <fstream>
 #include <iostream>
 
+#include <Python.h>
+#include <boost/python/dict.hpp>
+
+
 #include "analytic.h"
 
 // TODO: Clean up this header file. Pimpl it.
 namespace viscosaur
 {
     using namespace dealii;
+    namespace bp = boost::python;
 
     /* Abstract base class for the RHS of the Poisson equation.
      */
+    template <int dim>
     class PoissonRHS
     {
-
+        public:
+            double value(Point<dim> point) {
+                if (point[1] > 0.5 + 
+                        0.25 * std::sin(4.0 * numbers::PI * point[0]))
+                {
+                    return 1.0;
+                }
+                return -1.0;
+            };
     };
+
+    /* Currently, this must remain a compile constant.
+     */
+    const unsigned int fe_degree = 12;
 
     /*
      * The Poisson Solver. Most of this code is extracted from tutorial 40
@@ -88,11 +106,11 @@ namespace viscosaur
             Poisson ();
             ~Poisson ();
 
-            LA::MPI::Vector run (PoissonRHS rhs);
+            LA::MPI::Vector run (PoissonRHS<dim> rhs);
 
         private:
             void setup_system ();
-            void assemble_system (PoissonRHS rhs);
+            void assemble_system (PoissonRHS<dim> rhs);
             void solve ();
             void refine_grid ();
             std::string output_filename(const unsigned int cycle,
@@ -124,7 +142,7 @@ namespace viscosaur
                 (Triangulation<dim>::smoothing_on_refinement |
                  Triangulation<dim>::smoothing_on_coarsening)),
         dof_handler (triangulation),
-        fe (2),
+        fe (QGaussLobatto<1>(fe_degree + 1)),
         pcout (std::cout,
                 (Utilities::MPI::this_mpi_process(mpi_communicator)
                  == 0)),
@@ -190,11 +208,11 @@ namespace viscosaur
 
 
     template <int dim>
-    void Poisson<dim>::assemble_system (PoissonRHS rhs)
+    void Poisson<dim>::assemble_system (PoissonRHS<dim> rhs)
     {
         TimerOutput::Scope t(computing_timer, "assembly");
 
-        const QGauss<dim>  quadrature_formula(3);
+        const QGaussLobatto<dim>  quadrature_formula(fe_degree + 1);
 
         FEValues<dim> fe_values (fe, quadrature_formula,
                 update_values    |  update_gradients |
@@ -213,6 +231,7 @@ namespace viscosaur
             cell = dof_handler.begin_active(),
                  endc = dof_handler.end();
 
+        double rhs_value;
         for (; cell!=endc; ++cell)
         {
             if (!cell->is_locally_owned())
@@ -224,25 +243,22 @@ namespace viscosaur
 
             fe_values.reinit (cell);
 
-            for (unsigned int q_point=0; q_point<n_q_points; ++q_point)
+            for (unsigned int q_point=0; q_point < n_q_points; ++q_point)
             {
-                const double
-                    rhs_value
-                    = (fe_values.quadrature_point(q_point)[1]
-                            >
-                            0.5+0.25*std::sin(4.0 * numbers::PI *
-                                fe_values.quadrature_point(q_point)[0])
-                            ? 1 : -1);
+                rhs_value = rhs.value(fe_values.quadrature_point(q_point));
 
+                // This pair of loops is symmetric. I could cut the assembly
+                // cost in half by taking advantage of this.
                 for (unsigned int i=0; i<dofs_per_cell; ++i)
                 {
                     for (unsigned int j=0; j<dofs_per_cell; ++j)
                     {
-                        cell_matrix(i,j) += (fe_values.shape_grad(i,q_point) *
-                                fe_values.shape_grad(j,q_point) *
+                        // Note: for a 12th order method, this = 0 in 88% of
+                        // cases.
+                        cell_matrix(i,j) += (fe_values.shape_grad(i, q_point) *
+                                fe_values.shape_grad(j, q_point) *
                                 fe_values.JxW(q_point));
                     }
-
                     cell_rhs(i) += (rhs_value *
                             fe_values.shape_value(i,q_point) *
                             fe_values.JxW(q_point));
@@ -256,6 +272,8 @@ namespace viscosaur
                     system_matrix,
                     system_rhs);
         }
+        cout << "Zeros: " << z << std::endl;
+        cout << "Nonzeros: " << nz << std::endl;
 
         system_matrix.compress (VectorOperation::add);
         system_rhs.compress (VectorOperation::add);
@@ -305,10 +323,19 @@ namespace viscosaur
 
         Vector<float> estimated_error_per_cell (triangulation.n_active_cells());
         KellyErrorEstimator<dim>::estimate (dof_handler,
-                QGauss<dim-1>(3),
+                QGauss<dim-1>(fe_degree + 1),
                 typename FunctionMap<dim>::type(),
                 locally_relevant_solution,
                 estimated_error_per_cell);
+
+        //Print the local L2 error estimate.
+        double l2_error = estimated_error_per_cell.l2_norm();
+        std::cout << "Processor: " + 
+            Utilities::int_to_string(
+                    Utilities::MPI::this_mpi_process(mpi_communicator), 4) + 
+            "  with error: " << l2_error <<
+            std::endl;
+
         parallel::distributed::GridRefinement::
             refine_and_coarsen_fixed_number (triangulation,
                     estimated_error_per_cell,
@@ -372,13 +399,13 @@ namespace viscosaur
     void Poisson<dim>::init_mesh ()
     {
         GridGenerator::hyper_cube (triangulation);
-        triangulation.refine_global (5);
+        triangulation.refine_global(3);
     }
 
     template <int dim>
-    LA::MPI::Vector Poisson<dim>::run (PoissonRHS rhs)
+    LA::MPI::Vector Poisson<dim>::run (PoissonRHS<dim> rhs)
     {
-        const unsigned int n_cycles = 6;
+        const unsigned int n_cycles = 7;
         for (unsigned int cycle = 0; cycle < n_cycles; ++cycle)
         {
             pcout << "Cycle " << cycle << ':' << std::endl;

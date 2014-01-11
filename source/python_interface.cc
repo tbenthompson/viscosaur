@@ -51,7 +51,8 @@ BOOST_PYTHON_MODULE(viscosaur)
      * of the private members of Poisson are private
      */ 
     class_<dealii::TrilinosWrappers::MPI::Vector>("TrilinosVector", no_init);
-    class_<vc::PoissonRHS>("PoissonRHS", init<>());
+    class_<vc::PoissonRHS<2> >("PoissonRHS2D", init<>());
+    class_<vc::PoissonRHS<3> >("PoissonRHS3D", init<>());
     class_<vc::Poisson<2>, boost::noncopyable>("Poisson2D", init<>())
         .def("run", &vc::Poisson<2>::run);
     class_<vc::Poisson<3>, boost::noncopyable>("Poisson3D", init<>())
