@@ -56,12 +56,14 @@ namespace LA
 
 #include <fstream>
 #include <iostream>
+#include <memory>
 
 #include <Python.h>
 #include <boost/python/dict.hpp>
 
 
 #include "analytic.h"
+#include "one_step_rhs.h"
 
 // TODO: Clean up this header file. Pimpl it.
 namespace viscosaur
@@ -69,25 +71,45 @@ namespace viscosaur
     using namespace dealii;
     namespace bp = boost::python;
 
-    /* Abstract base class for the RHS of the Poisson equation.
-     */
-    template <int dim>
-    class PoissonRHS
-    {
-        public:
-            double value(Point<dim> point) {
-                if (point[1] > 0.5 + 
-                        0.25 * std::sin(4.0 * numbers::PI * point[0]))
-                {
-                    return 1.0;
-                }
-                return -1.0;
-            };
-    };
 
     /* Currently, this must remain a compile constant.
+     * Using higher order polynomials results in a problem with very slow 
+     * assembly. I suspect the fe_values.shape_grad call is not caching 
+     * the values properly
      */
-    const unsigned int fe_degree = 7;
+    const unsigned int fe_degree = 2;
+
+    template <int dim>
+    struct ProblemData
+    {
+        bp::dict              parameters;
+        MPI_Comm              mpi_comm;
+        parallel::distributed::Triangulation<dim> triangulation;
+        DoFHandler<dim>       dof_handler;
+        FE_Q<dim>             fe;
+        IndexSet              locally_owned_dofs;
+        IndexSet              locally_relevant_dofs;
+        ConstraintMatrix      constraints;
+        ConditionalOStream    pcout;
+        TimerOutput           computing_timer;
+
+        ProblemData(bp::dict params):
+            mpi_comm(MPI_COMM_WORLD),
+            triangulation(mpi_comm,
+                    typename Triangulation<dim>::MeshSmoothing
+                    (Triangulation<dim>::smoothing_on_refinement |
+                     Triangulation<dim>::smoothing_on_coarsening)),
+            dof_handler (triangulation),
+            fe (QGaussLobatto<1>(fe_degree + 1)),
+            pcout (std::cout,
+                    (Utilities::MPI::this_mpi_process(mpi_comm)
+                     == 0)),
+            computing_timer (pcout,
+                    TimerOutput::summary,
+                    TimerOutput::wall_times),
+            parameters (params)
+        {}
+    };
 
     /*
      * The Poisson Solver. Most of this code is extracted from tutorial 40
@@ -103,54 +125,50 @@ namespace viscosaur
     class Poisson
     {
         public:
-            Poisson ();
+            Poisson (bp::dict params);
             ~Poisson ();
 
-            LA::MPI::Vector run (PoissonRHS<dim> rhs);
+            LA::MPI::Vector run (PoissonRHS<dim>* rhs);
+            DoFHandler<dim>* get_dof_handler();
 
         private:
             void setup_system ();
-            void assemble_system (PoissonRHS<dim> rhs);
+
+            /* Assembly functions.
+             */
+            void fill_cell_matrix(
+                    FullMatrix<double> &cell_matrix,
+                    FEValues<dim> &fe_values,
+                    const unsigned int n_q_points,
+                    const unsigned int dofs_per_cell);
+            void assemble_system (PoissonRHS<dim>* rhs);
+
             void solve ();
             void refine_grid ();
             std::string output_filename(const unsigned int cycle,
                                         const unsigned int subdomain) const;
             void output_results (const unsigned int cycle) const;
             void init_mesh ();
-
-            MPI_Comm              mpi_communicator;
-            parallel::distributed::Triangulation<dim> triangulation;
-            DoFHandler<dim>       dof_handler;
-            FE_Q<dim>             fe;
-            IndexSet              locally_owned_dofs;
-            IndexSet              locally_relevant_dofs;
-            ConstraintMatrix      constraints;
+            
+            ProblemData<dim> pd;
             LA::MPI::SparseMatrix system_matrix;
             LA::MPI::Vector       locally_relevant_solution;
             LA::MPI::Vector       system_rhs;
-            ConditionalOStream    pcout;
-            TimerOutput           computing_timer;
     };
 
+    template<int dim>
+    DoFHandler<dim>* Poisson<dim>::get_dof_handler()
+    {
+        return &pd.dof_handler;
+    }
 
     template <int dim>
-    Poisson<dim>::Poisson ()
-    :
-        mpi_communicator (MPI_COMM_WORLD),
-        triangulation (mpi_communicator,
-                typename Triangulation<dim>::MeshSmoothing
-                (Triangulation<dim>::smoothing_on_refinement |
-                 Triangulation<dim>::smoothing_on_coarsening)),
-        dof_handler (triangulation),
-        fe (QGaussLobatto<1>(fe_degree + 1)),
-        pcout (std::cout,
-                (Utilities::MPI::this_mpi_process(mpi_communicator)
-                 == 0)),
-        computing_timer (pcout,
-                TimerOutput::summary,
-                TimerOutput::wall_times)
+    Poisson<dim>::Poisson (bp::dict params):
+        pd(params)
     {
-        pcout << "Setting up the Poisson solver." << std::endl;
+        pd.pcout << "Setting up the Poisson solver." << std::endl;
+        init_mesh();
+        setup_system();
     }
 
 
@@ -158,7 +176,7 @@ namespace viscosaur
     template <int dim>
     Poisson<dim>::~Poisson ()
     {
-        dof_handler.clear ();
+        pd.dof_handler.clear();
     }
 
 
@@ -166,60 +184,90 @@ namespace viscosaur
     template <int dim>
     void Poisson<dim>::setup_system ()
     {
-        TimerOutput::Scope t(computing_timer, "setup");
+        //The theme in this function is that only the locally relevant or 
+        //locally owned dofs will be made known to any given processor.
+        TimerOutput::Scope t(pd.computing_timer, "setup");
 
-        dof_handler.distribute_dofs (fe);
+        // Spread dofs 
+        pd.dof_handler.distribute_dofs (pd.fe);
 
-        locally_owned_dofs = dof_handler.locally_owned_dofs ();
-        DoFTools::extract_locally_relevant_dofs (dof_handler,
-                locally_relevant_dofs);
+        // Set the dofs that this process will actually solve.
+        pd.locally_owned_dofs = pd.dof_handler.locally_owned_dofs ();
 
-        locally_relevant_solution.reinit (locally_owned_dofs,
-                locally_relevant_dofs, mpi_communicator);
-        system_rhs.reinit (locally_owned_dofs, mpi_communicator);
+        // Set the dofs that this process will need to perform solving
+        DoFTools::extract_locally_relevant_dofs(pd.dof_handler,
+                pd.locally_relevant_dofs);
+
+        locally_relevant_solution.reinit (pd.locally_owned_dofs,
+                pd.locally_relevant_dofs, pd.mpi_comm);
+        system_rhs.reinit (pd.locally_owned_dofs, pd.mpi_comm);
 
         system_rhs = 0;
 
-        constraints.clear ();
-        constraints.reinit (locally_relevant_dofs);
-        DoFTools::make_hanging_node_constraints (dof_handler, constraints);
-        VectorTools::interpolate_boundary_values (dof_handler,
+        // Constrain hanging nodes and boundary conditions.
+        pd.constraints.clear();
+        pd.constraints.reinit(pd.locally_relevant_dofs);
+        DoFTools::make_hanging_node_constraints (pd.dof_handler, pd.constraints);
+        VectorTools::interpolate_boundary_values (pd.dof_handler,
                 0,
                 ZeroFunction<dim>(),
-                constraints);
-        constraints.close ();
+                pd.constraints);
+        pd.constraints.close();
 
-        CompressedSimpleSparsityPattern csp (locally_relevant_dofs);
+        CompressedSimpleSparsityPattern csp (pd.locally_relevant_dofs);
 
-        DoFTools::make_sparsity_pattern (dof_handler, csp,
-                constraints, false);
+        DoFTools::make_sparsity_pattern (pd.dof_handler, csp,
+                pd.constraints, false);
         SparsityTools::distribute_sparsity_pattern (csp,
-                dof_handler.n_locally_owned_dofs_per_processor(),
-                mpi_communicator,
-                locally_relevant_dofs);
+                pd.dof_handler.n_locally_owned_dofs_per_processor(),
+                pd.mpi_comm,
+                pd.locally_relevant_dofs);
 
-        system_matrix.reinit (locally_owned_dofs,
-                locally_owned_dofs,
+        system_matrix.reinit (pd.locally_owned_dofs,
+                pd.locally_owned_dofs,
                 csp,
-                mpi_communicator);
+                pd.mpi_comm);
     }
 
 
 
+    template <int dim>
+    void Poisson<dim>::fill_cell_matrix(FullMatrix<double> &cell_matrix,
+                                        FEValues<dim> &fe_values,
+                                        const unsigned int n_q_points,
+                                        const unsigned int dofs_per_cell)
+    {
+        for (unsigned int q_point=0; q_point < n_q_points; ++q_point)
+        {
+            // This pair of loops is symmetric. I could cut the assembly
+            // cost in half by taking advantage of this.
+            for (unsigned int i=0; i<dofs_per_cell; ++i)
+            {
+                for (unsigned int j=0; j<dofs_per_cell; ++j)
+                {
+                    // Note: for a 12th order method, this = 0 in 88% of
+                    // cases.
+                    cell_matrix(i,j) += (fe_values.shape_grad(i, q_point) *
+                            fe_values.shape_grad(j, q_point) *
+                            fe_values.JxW(q_point));
+                }
+            }
+        }
+    }
 
     template <int dim>
-    void Poisson<dim>::assemble_system (PoissonRHS<dim> rhs)
+    void Poisson<dim>::assemble_system(PoissonRHS<dim>* rhs)
     {
-        TimerOutput::Scope t(computing_timer, "assembly");
+        TimerOutput::Scope t(pd.computing_timer, "assembly");
 
         const QGaussLobatto<dim>  quadrature_formula(fe_degree + 1);
 
-        FEValues<dim> fe_values (fe, quadrature_formula,
+        FEValues<dim> fe_values (pd.fe, quadrature_formula,
                 update_values    |  update_gradients |
                 update_quadrature_points |
                 update_JxW_values);
 
-        const unsigned int   dofs_per_cell = fe.dofs_per_cell;
+        const unsigned int   dofs_per_cell = pd.fe.dofs_per_cell;
         const unsigned int   n_q_points    = quadrature_formula.size();
 
         FullMatrix<double>   cell_matrix (dofs_per_cell, dofs_per_cell);
@@ -228,53 +276,35 @@ namespace viscosaur
         std::vector<types::global_dof_index> local_dof_indices (dofs_per_cell);
 
         typename DoFHandler<dim>::active_cell_iterator
-            cell = dof_handler.begin_active(),
-                 endc = dof_handler.end();
+            cell = pd.dof_handler.begin_active(),
+                 endc = pd.dof_handler.end();
 
-        double rhs_value;
+        rhs->start_assembly();
+
         for (; cell!=endc; ++cell)
         {
             if (!cell->is_locally_owned())
             {
                 continue;
             }
+            TimerOutput::Scope t2(pd.computing_timer, "cell_construction");
             cell_matrix = 0;
             cell_rhs = 0;
 
-            fe_values.reinit (cell);
+            fe_values.reinit(cell);
+            rhs->fill_cell_rhs(cell_rhs, fe_values, n_q_points, dofs_per_cell);
+            fill_cell_matrix(cell_matrix, fe_values, n_q_points, dofs_per_cell);
 
-            for (unsigned int q_point=0; q_point < n_q_points; ++q_point)
-            {
-                rhs_value = rhs.value(fe_values.quadrature_point(q_point));
-
-                // This pair of loops is symmetric. I could cut the assembly
-                // cost in half by taking advantage of this.
-                for (unsigned int i=0; i<dofs_per_cell; ++i)
-                {
-                    for (unsigned int j=0; j<dofs_per_cell; ++j)
-                    {
-                        // Note: for a 12th order method, this = 0 in 88% of
-                        // cases.
-                        cell_matrix(i,j) += (fe_values.shape_grad(i, q_point) *
-                                fe_values.shape_grad(j, q_point) *
-                                fe_values.JxW(q_point));
-                    }
-                    cell_rhs(i) += (rhs_value *
-                            fe_values.shape_value(i,q_point) *
-                            fe_values.JxW(q_point));
-                }
-            }
-
-            cell->get_dof_indices (local_dof_indices);
-            constraints.distribute_local_to_global (cell_matrix,
+            cell->get_dof_indices(local_dof_indices);
+            pd.constraints.distribute_local_to_global(cell_matrix,
                     cell_rhs,
                     local_dof_indices,
                     system_matrix,
                     system_rhs);
         }
 
-        system_matrix.compress (VectorOperation::add);
-        system_rhs.compress (VectorOperation::add);
+        system_matrix.compress(VectorOperation::add);
+        system_rhs.compress(VectorOperation::add);
     }
 
 
@@ -283,13 +313,14 @@ namespace viscosaur
     template <int dim>
     void Poisson<dim>::solve ()
     {
-        TimerOutput::Scope t(computing_timer, "solve");
+        TimerOutput::Scope t(pd.computing_timer, "solve");
         LA::MPI::Vector
-            completely_distributed_solution (locally_owned_dofs, mpi_communicator);
+            completely_distributed_solution (pd.locally_owned_dofs, 
+                                             pd.mpi_comm);
 
-        SolverControl solver_control (dof_handler.n_dofs(), 1e-12);
+        SolverControl solver_control (pd.dof_handler.n_dofs(), 1e-12);
 
-        LA::SolverCG solver(solver_control, mpi_communicator);
+        LA::SolverCG solver(solver_control, pd.mpi_comm);
         LA::MPI::PreconditionAMG preconditioner;
 
         LA::MPI::PreconditionAMG::AdditionalData data;
@@ -300,13 +331,15 @@ namespace viscosaur
 #endif
         preconditioner.initialize(system_matrix, data);
 
-        solver.solve (system_matrix, completely_distributed_solution, system_rhs,
-                preconditioner);
+        solver.solve(system_matrix, 
+                     completely_distributed_solution, 
+                     system_rhs,
+                     preconditioner);
 
-        pcout << "   Solved in " << solver_control.last_step()
+        pd.pcout << "   Solved in " << solver_control.last_step()
               << " iterations." << std::endl;
 
-        constraints.distribute (completely_distributed_solution);
+        pd.constraints.distribute(completely_distributed_solution);
 
         locally_relevant_solution = completely_distributed_solution;
     }
@@ -317,10 +350,10 @@ namespace viscosaur
     template <int dim>
     void Poisson<dim>::refine_grid ()
     {
-        TimerOutput::Scope t(computing_timer, "refine");
+        TimerOutput::Scope t(pd.computing_timer, "refine");
 
-        Vector<float> estimated_error_per_cell (triangulation.n_active_cells());
-        KellyErrorEstimator<dim>::estimate (dof_handler,
+        Vector<float> estimated_error_per_cell (pd.triangulation.n_active_cells());
+        KellyErrorEstimator<dim>::estimate (pd.dof_handler,
                 QGauss<dim-1>(fe_degree + 1),
                 typename FunctionMap<dim>::type(),
                 locally_relevant_solution,
@@ -330,15 +363,31 @@ namespace viscosaur
         double l2_error = estimated_error_per_cell.l2_norm();
         std::cout << "Processor: " + 
             Utilities::int_to_string(
-                    Utilities::MPI::this_mpi_process(mpi_communicator), 4) + 
+                    Utilities::MPI::this_mpi_process(pd.mpi_comm), 4) + 
             "  with error: " << l2_error <<
             std::endl;
 
         parallel::distributed::GridRefinement::
-            refine_and_coarsen_fixed_number (triangulation,
+            refine_and_coarsen_fixed_number (pd.triangulation,
                     estimated_error_per_cell,
-                    0.3, 0.03);
-        triangulation.execute_coarsening_and_refinement ();
+                    0.5, 0.3);
+
+        // Don't overrefine or underrefine.
+        const unsigned int max_grid_level = 
+            bp::extract<int>(pd.parameters["max_grid_level"]);
+        const unsigned int min_grid_level = 
+            bp::extract<int>(pd.parameters["min_grid_level"]);
+        if (pd.triangulation.n_levels() > max_grid_level)
+            for (typename Triangulation<dim>::active_cell_iterator
+                 cell = pd.triangulation.begin_active(max_grid_level);
+                 cell != pd.triangulation.end(); ++cell)
+                cell->clear_refine_flag ();
+        for (typename Triangulation<dim>::active_cell_iterator
+             cell = pd.triangulation.begin_active(min_grid_level);
+             cell != pd.triangulation.end_active(min_grid_level); ++cell)
+            cell->clear_coarsen_flag ();
+
+        pd.triangulation.execute_coarsening_and_refinement();
     }
 
 
@@ -357,11 +406,11 @@ namespace viscosaur
     void Poisson<dim>::output_results (const unsigned int cycle) const
     {
         DataOut<dim> data_out;
-        data_out.attach_dof_handler(dof_handler);
+        data_out.attach_dof_handler(pd.dof_handler);
         data_out.add_data_vector(locally_relevant_solution, "u");
 
-        Vector<float> subdomain(triangulation.n_active_cells());
-        unsigned int this_subd = triangulation.locally_owned_subdomain();
+        Vector<float> subdomain(pd.triangulation.n_active_cells());
+        unsigned int this_subd = pd.triangulation.locally_owned_subdomain();
         for (unsigned int i = 0; i < subdomain.size(); ++i)
             subdomain(i) = this_subd;
         data_out.add_data_vector(subdomain, "subdomain");
@@ -372,12 +421,12 @@ namespace viscosaur
         std::ofstream output(("data/" + this_f + ".vtu").c_str());
         data_out.write_vtu(output);
 
-        if (Utilities::MPI::this_mpi_process(mpi_communicator) == 0)
+        if (Utilities::MPI::this_mpi_process(pd.mpi_comm) == 0)
         {
             // Build the list of filenames to store in the master pvtu file
             std::vector<std::string> filenames;
             for (unsigned int i=0;
-                    i<Utilities::MPI::n_mpi_processes(mpi_communicator);
+                    i<Utilities::MPI::n_mpi_processes(pd.mpi_comm);
                     ++i)
             {
                 std::string f = output_filename(cycle, i);
@@ -396,51 +445,72 @@ namespace viscosaur
     template <int dim>
     void Poisson<dim>::init_mesh ()
     {
-        GridGenerator::hyper_cube (triangulation);
-        triangulation.refine_global(2);
+        Point<dim> min = bp::extract<Point<dim> >(pd.parameters["min_corner"]);
+        Point<dim> max = bp::extract<Point<dim> >(pd.parameters["max_corner"]);
+        std::vector<unsigned int> n_subdivisions;
+        n_subdivisions.push_back(1);
+        n_subdivisions.push_back(1);
+        if (dim == 3)
+        {
+            n_subdivisions.push_back(1);
+        }
+        pd.pcout << "Creating rectangle with min corner: ("
+            << min(0) << ", " << min(1) << ") and max corner: ("
+            << max(0) << ", " << max(1) << ")" << std::endl;
+
+        // Create a rectangular grid with corners at min and max
+        // the "true" specifies that each side should have a 
+        // different boundary indicator.
+        // Only 1 subdivision in each direction to start
+        GridGenerator::subdivided_hyper_rectangle(pd.triangulation,
+                                                  n_subdivisions,
+                                                  min,
+                                                  max,
+                                                  true);
+        // GridGenerator::hyper_cube (pd.triangulation);
+        // Isotropically refine a few times.
+        int initial_isotropic_refines = bp::extract<int>
+            (pd.parameters["initial_isotropic_refines"]);
+        pd.triangulation.refine_global(initial_isotropic_refines);
     }
 
     template <int dim>
-    LA::MPI::Vector Poisson<dim>::run (PoissonRHS<dim> rhs)
+    LA::MPI::Vector Poisson<dim>::run (PoissonRHS<dim>* rhs)
     {
-        const unsigned int n_cycles = 2;
+        const unsigned int n_cycles = 5;
         for (unsigned int cycle = 0; cycle < n_cycles; ++cycle)
         {
-            pcout << "Cycle " << cycle << ':' << std::endl;
+            pd.pcout << "Cycle " << cycle << ':' << std::endl;
 
-            if (cycle == 0)
-            {
-                init_mesh();
-            }
-            else
+            if (cycle != 0)
             {
                 refine_grid();
+                setup_system();
+                // Build the matrices
+                assemble_system(rhs);
             }
 
-            setup_system();
 
-            pcout << "   Number of active cells:       "
-                << triangulation.n_global_active_cells()
+            pd.pcout << "   Number of active cells:       "
+                << pd.triangulation.n_global_active_cells()
                 << std::endl
                 << "   Number of degrees of freedom: "
-                << dof_handler.n_dofs()
+                << pd.dof_handler.n_dofs()
                 << std::endl;
 
-            // Build the matrices
-            assemble_system(rhs);
 
             // Solve the linear system.
             solve();
 
-            if (Utilities::MPI::n_mpi_processes(mpi_communicator) <= 32)
+            if (Utilities::MPI::n_mpi_processes(pd.mpi_comm) <= 32)
             {
-                TimerOutput::Scope t(computing_timer, "output");
+                TimerOutput::Scope t(pd.computing_timer, "output");
                 output_results (cycle);
             }
 
-            pcout << std::endl;
-            computing_timer.print_summary ();
-            computing_timer.reset ();
+            pd.pcout << std::endl;
+            pd.computing_timer.print_summary ();
+            pd.computing_timer.reset ();
         }
         return locally_relevant_solution;
     }

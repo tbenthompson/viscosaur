@@ -1,4 +1,4 @@
-#define PI 3.14159265358979323846
+// #define PI 3.14159265358979323846
 #include <math.h>
 #include "analytic.h"
 
@@ -24,7 +24,7 @@ namespace viscosaur
         {
             return 0.0;
         }
-        return cos(z * PI / (2 * this->D));
+        return cos(z * dealii::numbers::PI / (2 * this->D));
     }
 
     TwoLayerAnalytic::TwoLayerAnalytic(double fault_slip,
@@ -85,7 +85,7 @@ namespace viscosaur
                 // Deeper than the fault bottom.
                 term1 = atan((2 * m + 1 + y_scaled) / x_scaled);
                 term2 = -atan((2 * m - 3 + y_scaled) / x_scaled);
-                term = (1.0 / (2.0 * PI)) * (term1 + term2);
+                term = (1.0 / (2.0 * dealii::numbers::PI)) * (term1 + term2);
             }
             else
             {
@@ -94,7 +94,7 @@ namespace viscosaur
                 term2 = -atan((2 * m - 1 + y_scaled) / x_scaled);
                 term3 = atan((2 * m + 1 - y_scaled) / x_scaled);
                 term4 = -atan((2 * m - 1 - y_scaled) / x_scaled);
-                term = (1.0 / (2.0 * PI)) * (term1 + term2 + term3 + term4);
+                term = (1.0 / (2.0 * dealii::numbers::PI)) * (term1 + term2 + term3 + term4);
             }
             v += factor * term;
         }
@@ -107,7 +107,7 @@ namespace viscosaur
                                                              double y) 
     {
         double factor, main_term, image_term, Szx, Szy;
-        factor = (this->fault_slip * this->shear_modulus) / (2 * PI);
+        factor = (this->fault_slip * this->shear_modulus) / (2 * dealii::numbers::PI);
         main_term = (y - this->fault_depth) / 
             (pow((y - this->fault_depth), 2) + pow(x, 2));
         image_term = -(y + this->fault_depth) / 
@@ -271,7 +271,7 @@ namespace viscosaur
                 v += factor * (term1 + term2 + term3 + term4);
             }
         }
-        v *= (1.0 / (2.0 * PI)) * exp(-t / t_r)  / t_r;
+        v *= (1.0 / (2.0 * dealii::numbers::PI)) * exp(-t / t_r)  / t_r;
         return v;
     }
 
@@ -304,8 +304,7 @@ namespace viscosaur
             pow((pow(p->y + z, 2) + pow(p->x, 2)), 2);
     }
 
-    boost::array<double, 2> 
-        TwoLayerAnalytic::integral_stress(double x, double y)
+    double TwoLayerAnalytic::integral_Szx(double x, double y) const
     {
         double factor, main_term, image_term, Szx, Szy;
 
@@ -316,10 +315,9 @@ namespace viscosaur
         params.D = this->fault_depth;
         params.s = slip_fnc;
         F.params = &params;
-        double int_result;
         double int_error;
 
-        factor = (shear_modulus) / (2 * PI);
+        factor = (shear_modulus) / (2 * dealii::numbers::PI);
 
         F.function = &Szx_main_term_fnc;
         gsl_integration_qags (&F, 0, this->fault_depth,
@@ -328,6 +326,23 @@ namespace viscosaur
         gsl_integration_qags (&F, 0, this->fault_depth,
                 0, 1e-7, 1000, this->integration, &image_term, &int_error);
         Szx = factor * (main_term + image_term);
+        return Szx;
+    }
+
+    double TwoLayerAnalytic::integral_Szy(double x, double y) const
+    {
+        double factor, main_term, image_term, Szx, Szy;
+
+        gsl_function F;
+        AnalyticFncParameters params;
+        params.x = x;
+        params.y = y;
+        params.D = this->fault_depth;
+        params.s = slip_fnc;
+        F.params = &params;
+        double int_error;
+
+        factor = (shear_modulus) / (2 * dealii::numbers::PI);
 
         F.function = &Szy_main_term_fnc;
         gsl_integration_qags (&F, 0, this->fault_depth,
@@ -336,7 +351,6 @@ namespace viscosaur
         gsl_integration_qags (&F, 0, this->fault_depth,
                 0, 1e-7, 1000, this->integration, &image_term, &int_error);
         Szy = factor * (main_term + image_term);
-        boost::array<double, 2> retval = {{Szx, Szy}};
-        return retval;
+        return Szy;
     }
 }

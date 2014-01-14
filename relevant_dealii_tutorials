@@ -1,0 +1,5 @@
+40 -- laplace super parallel
+32 -- mantle super parallel
+35 -- projection mthd
+26 -- heat, time dependent adaptive meshing
+
