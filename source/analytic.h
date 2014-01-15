@@ -1,10 +1,12 @@
 #ifndef __viscosaur_analytic_h
 #define __viscosaur_analytic_h
-#include <string>
-#include <boost/array.hpp>
-#include <boost/shared_ptr.hpp>
-#include <gsl/gsl_integration.h>
 #include <deal.II/base/function.h>
+#include <gsl/gsl_integration.h>
+
+namespace boost 
+{
+    template<class T, std::size_t N> class array;
+}
 
 namespace viscosaur
 {

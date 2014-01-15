@@ -1,6 +1,7 @@
 // #define PI 3.14159265358979323846
-#include <math.h>
 #include "analytic.h"
+#include <boost/array.hpp>
+#include <math.h>
 
 namespace viscosaur
 {

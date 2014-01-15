@@ -1,0 +1,3 @@
+Add a template forward declaration file so that I don't need to include templates in order retain their defaults
+Work on a python interface for the dealii code. Tightly integrate with boost or some other tool in order to maintain
+the speed of C++ for the essential parts.

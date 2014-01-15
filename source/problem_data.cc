@@ -1,12 +1,7 @@
 #include "problem_data.h"
 
 #include <deal.II/base/quadrature_lib.h>
-#include <deal.II/base/function.h>
 #include <deal.II/base/timer.h>
-
-#include <deal.II/lac/generic_linear_algebra.h>
-
-#include "linear_algebra.h"
 
 #include <deal.II/lac/vector.h>
 #include <deal.II/lac/full_matrix.h>
@@ -14,35 +9,21 @@
 #include <deal.II/lac/constraint_matrix.h>
 #include <deal.II/lac/compressed_simple_sparsity_pattern.h>
 
-#include <deal.II/lac/petsc_parallel_sparse_matrix.h>
-#include <deal.II/lac/petsc_parallel_vector.h>
-#include <deal.II/lac/petsc_solver.h>
-#include <deal.II/lac/petsc_precondition.h>
-
 #include <deal.II/grid/grid_generator.h>
 #include <deal.II/grid/tria_accessor.h>
 #include <deal.II/grid/tria_iterator.h>
-#include <deal.II/dofs/dof_handler.h>
-#include <deal.II/dofs/dof_accessor.h>
 #include <deal.II/dofs/dof_tools.h>
-#include <deal.II/fe/fe_values.h>
-#include <deal.II/fe/fe_q.h>
-#include <deal.II/numerics/vector_tools.h>
-#include <deal.II/numerics/data_out.h>
 #include <deal.II/numerics/error_estimator.h>
 
-#include <deal.II/base/utilities.h>
-#include <deal.II/base/conditional_ostream.h>
-#include <deal.II/base/index_set.h>
 #include <deal.II/lac/sparsity_tools.h>
-#include <deal.II/distributed/tria.h>
 #include <deal.II/distributed/grid_refinement.h>
-#include <Python.h>
-#include <boost/python/dict.hpp>
+
 #include <boost/python/extract.hpp>
 
 namespace viscosaur
 {
+    using namespace dealii;
+    namespace bp = boost::python;
     template <int dim>
     ProblemData<dim>::ProblemData(bp::dict &params):
         mpi_comm(MPI_COMM_WORLD),
@@ -205,4 +186,10 @@ namespace viscosaur
         //After the triangulation is modified, we need to reinitialize the dofs.
         init_dofs();
     }
+
+    // ESSENTIAL: explicity define the template types we will use.
+    // Otherwise, the template definition needs to go in the header file, which
+    // is ugly!
+    template class ProblemData<2>;
+    template class ProblemData<3>;
 }

@@ -1,6 +1,24 @@
-#include <deal.II/base/utilities.h>
-#include <deal.II/base/logstream.h>
-#include <boost/python.hpp>
+#ifndef __viscosaur_control_h
+#define __viscosaur_control_h
+
+/* Forward declare necessary classes. */
+namespace boost
+{
+    namespace python
+    {
+        class list;
+    }
+}
+namespace dealii
+{
+    namespace Utilities
+    {
+        namespace MPI
+        {
+            class MPI_InitFinalize;
+        }
+    }
+}
 
 namespace viscosaur
 {
@@ -11,24 +29,24 @@ namespace viscosaur
      * can be performed in C++.
      * Currently unused. Consider removing? Or move to some utilites file?
      */
-    class ScopedGILRelease
-    {
-    // C & D -------------------------------------------------------------------------------------------
-    public:
-        inline ScopedGILRelease()
-        {
-            m_thread_state = PyEval_SaveThread();
-        }
+    // class ScopedGILRelease
+    // {
+    // // C & D -------------------------------------------------------------------------------------------
+    // public:
+    //     inline ScopedGILRelease()
+    //     {
+    //         m_thread_state = PyEval_SaveThread();
+    //     }
 
-        inline ~ScopedGILRelease()
-        {
-            PyEval_RestoreThread(m_thread_state);
-            m_thread_state = NULL;
-        }
+    //     inline ~ScopedGILRelease()
+    //     {
+    //         PyEval_RestoreThread(m_thread_state);
+    //         m_thread_state = NULL;
+    //     }
 
-    private:
-        PyThreadState * m_thread_state;
-    };
+    // private:
+    //     PyThreadState * m_thread_state;
+    // };
 
 
     /* Entry class for viscosaur. A copy must be maintained at all times
@@ -47,3 +65,4 @@ namespace viscosaur
             dealii::Utilities::MPI::MPI_InitFinalize* mpi;
     };
 }
+#endif

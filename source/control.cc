@@ -1,9 +1,14 @@
-#include <string>
 #include "control.h"
-namespace bp = boost::python;
+
+#include <string>
+#include <boost/python/list.hpp>
+#include <boost/python/extract.hpp>
+#include <deal.II/base/utilities.h>
+#include <deal.II/base/logstream.h>
 
 namespace viscosaur
 {
+    namespace bp = boost::python;
     Vc::Vc(bp::list args)
     {
         int argc = bp::len(args);

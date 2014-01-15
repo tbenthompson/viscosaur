@@ -1,6 +1,6 @@
 #include "poisson.h"
 #include "problem_data.h"
-#include "one_step_rhs.h"
+#include "rhs.h"
 
 #include <deal.II/base/quadrature_lib.h>
 #include <deal.II/base/function.h>
@@ -11,8 +11,6 @@
 #include <deal.II/lac/vector.h>
 #include <deal.II/lac/full_matrix.h>
 #include <deal.II/lac/solver_cg.h>
-#include <deal.II/lac/constraint_matrix.h>
-#include <deal.II/lac/compressed_simple_sparsity_pattern.h>
 
 #include <deal.II/lac/petsc_solver.h>
 #include <deal.II/lac/petsc_precondition.h>
@@ -29,14 +27,9 @@
 #include <deal.II/fe/fe_q.h>
 #include <deal.II/numerics/vector_tools.h>
 #include <deal.II/numerics/data_out.h>
-#include <deal.II/numerics/error_estimator.h>
 
 #include <deal.II/base/utilities.h>
-#include <deal.II/base/conditional_ostream.h>
-#include <deal.II/base/index_set.h>
 #include <deal.II/lac/sparsity_tools.h>
-#include <deal.II/distributed/tria.h>
-#include <deal.II/distributed/grid_refinement.h>
 
 #include <Python.h>
 #include <boost/python/dict.hpp>
@@ -45,6 +38,7 @@
 
 namespace viscosaur
 {
+    using namespace dealii;
     namespace bp = boost::python;
 
     template<int dim>
@@ -320,7 +314,9 @@ namespace viscosaur
         return locally_relevant_solution;
     }
 
-    //Explicitly define the two types of templates we will use
+    // ESSENTIAL: explicity define the template types we will use.
+    // Otherwise, the template definition needs to go in the header file, which
+    // is ugly!
     template class Poisson<2>;
     template class Poisson<3>;
 }

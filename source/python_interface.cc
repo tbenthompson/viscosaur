@@ -10,7 +10,13 @@
 
 #include "analytic.h"
 #include "poisson.h"
+#include "problem_data.h"
 #include "control.h"
+#include "rhs.h"
+
+#include <deal.II/base/point.h>
+#include <deal.II/base/function.h>
+#include <deal.II/dofs/dof_handler.h>
 namespace vc = viscosaur;
 
 
@@ -31,7 +37,7 @@ BOOST_PYTHON_MODULE(viscosaur)
         .def("value", pure_virtual(&dealii::Function<2>::value));
     class_<dealii::Function<3>, boost::noncopyable>("Function3D", no_init)
         .def("value", pure_virtual(&dealii::Function<3>::value));
-    class_<dealii::TrilinosWrappers::MPI::Vector>("TrilinosVector", no_init);
+    class_<dealii::PETScWrappers::MPI::Vector>("PETScWrappers", no_init);
     class_<dealii::DoFHandler<2>, boost::noncopyable>("DoFHander2D", no_init);
 
     /* Basic viscosaur functions.
@@ -89,9 +95,9 @@ BOOST_PYTHON_MODULE(viscosaur)
         // .def("value", &vc::OneStepRHS<2>::value);
 
     class_<vc::ProblemData<2>, boost::noncopyable>("ProblemData2D",
-                                                    init<dict>());
+                                                    init<dict&>());
     class_<vc::ProblemData<3>, boost::noncopyable>("ProblemData3D",
-                                                    init<dict>());
+                                                    init<dict&>());
     class_<vc::Poisson<2>, boost::noncopyable>("Poisson2D", 
                                                init<vc::ProblemData<2>&>())
         .def("run", &vc::Poisson<2>::run)

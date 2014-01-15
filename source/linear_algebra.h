@@ -1,5 +1,9 @@
 #ifndef __viscosaur_linear_algebra_h
 #define __viscosaur_linear_algebra_h
+// This include just defines which linear algebra package to use.
+// It should be included after all the other relevant includes and will fail if
+// the proper linear algbra package has not been included.
+//
 // On my current machine, Trilinos linear algebra seems to be
 // about twice as fast as PETSc. This is probably an artifact of some 
 // configurations, so flip this flag to try out PETSc (assuming it's
