@@ -6,23 +6,7 @@
 
 #include <deal.II/lac/generic_linear_algebra.h>
 
-// On my current machine, Trilinos linear algebra seems to be
-// about twice as fast as PETSc. This is probably an artifact of some 
-// configurations, so flip this flag to try out PETSc (assuming it's
-// installed and deal.II is configured to use it). 
-// However, the python bindings are not set up for PETSc, so new 
-// bindings will need to be made. On the other hand, petsc4py
-// might be able to do the job.
-// #define USE_PETSC_LA
-
-namespace LA
-{
-#ifdef USE_PETSC_LA
-    using namespace dealii::LinearAlgebraPETSc;
-#else
-    using namespace dealii::LinearAlgebraTrilinos;
-#endif
-}
+#include "linear_algebra.h"
 
 #include <deal.II/lac/vector.h>
 #include <deal.II/lac/full_matrix.h>
@@ -53,6 +37,8 @@ namespace LA
 #include <deal.II/lac/sparsity_tools.h>
 #include <deal.II/distributed/tria.h>
 #include <deal.II/distributed/grid_refinement.h>
+
+#include "problem_data.h"
 namespace viscosaur
 {
     using namespace dealii;
@@ -111,7 +97,7 @@ namespace viscosaur
         public:
             OneStepRHS(Function<dim> &init_cond_Szx,
                        Function<dim> &init_cond_Szy,
-                       DoFHandler<dim> &dof_handler);
+                       ProblemData<dim> &p_pd);
             virtual void fill_cell_rhs(
                      Vector<double> &cell_rhs,
                      FEValues<dim> &fe_values,
@@ -152,51 +138,65 @@ namespace viscosaur
                                 data.fe_values.get_update_flags())
                 {}
             };
-            // void initialize_diff_operator(DoFHandler<dim> &dof_handler,
-            //                  FE_Q<dim> fe,
-            //                  QGaussLobatto<dim> quadrature);
+            // void initialize_diff_operator();
             // void copy_diff_local_to_global(const InitDiffPerTaskData &data);
             // void assemble_one_cell_of_diff(
             //     const typename DoFHandler<dim>::active_cell_iterator &cell,
             //     InitDiffScratchData &scratch,
             //     InitDiffPerTaskData &data);
-            
+            // 
             LA::MPI::SparseMatrix diff_matrix[dim];
-
+            ConstraintMatrix constraints;
+            ProblemData<dim>* pd;
     };
 
     template <int dim>
     OneStepRHS<dim>::
     OneStepRHS(Function<dim> &init_cond_Szx,
                Function<dim> &init_cond_Szy,
-               DoFHandler<dim> &dof_handler)
+               ProblemData<dim> &p_pd)
     {
-        Vector<double> Szx(dof_handler.n_dofs());
-        VectorTools::interpolate(dof_handler, init_cond_Szx, Szx);
+        pd = &p_pd;
 
-        Vector<double> Szy(dof_handler.n_dofs());
-        VectorTools::interpolate(dof_handler, init_cond_Szy, Szy);
+        // Vector<double> Szx(dof_handler.n_dofs());
+        // VectorTools::interpolate(dof_handler, init_cond_Szx, Szx);
 
-        DataOut<dim> data_out;
-        data_out.attach_dof_handler(dof_handler);
-        data_out.add_data_vector(Szx, "Szx"); 
-        data_out.add_data_vector(Szy, "Szy"); 
-        data_out.build_patches();
+        // Vector<double> Szy(dof_handler.n_dofs());
+        // VectorTools::interpolate(dof_handler, init_cond_Szy, Szy);
 
-        std::ofstream output("abcdef.vtk");
-        data_out.write_vtk(output);
     }
+    //     //Create hanging node constraints for the differentiation matrix so 
+    //     //that we don't get unrealistic discontinuities in the rhs. Is this
+    //     //actually something that I should be doing?
+    //     constraints = *pd->create_constraints();
+    //     constraints.close();
+    //     CompressedSimpleSparsityPattern* csp = 
+    //         pd->create_sparsity_pattern(constraints);
+    //     for (int n = 0; n < dim; ++n)
+    //     {
+    //         diff_matrix[n].reinit(pd->locally_owned_dofs,
+    //                               pd->locally_owned_dofs,
+    //                               *csp,
+    //                               pd->mpi_comm);
+    //     }
+
+    //     // DataOut<dim> data_out;
+    //     // data_out.attach_dof_handler(dof_handler);
+    //     // data_out.add_data_vector(Szx, "Szx"); 
+    //     // data_out.add_data_vector(Szy, "Szy"); 
+    //     // data_out.build_patches();
+
+    //     // std::ofstream output("abcdef.vtk");
+    //     // data_out.write_vtk(output);
+    // }
 
     // template <int dim>
     // void 
     // OneStepRHS<dim>::
-    // initialize_diff_operator(DoFHandler<dim> &dof_handler,
-    //                          FE_Q<dim> fe,
-    //                          QGaussLobatto<dim> quadrature,
-    //                                                   
+    // initialize_diff_operator()
     // {
-    //     InitDiffPerTaskData per_task_data (0, fe_velocity.dofs_per_cell);
-    //     InitDiffScratchData scratch_data (fe, quadrature,
+    //     InitDiffPerTaskData per_task_data (0, pd->fe);
+    //     InitDiffScratchData scratch_data (pd->fe, pd->quadrature,
     //                                 update_gradients | update_JxW_values,
     //                                 update_values);
     //     for (unsigned int d=0; d<dim; ++d)
@@ -257,18 +257,18 @@ namespace viscosaur
     //     }
     // }
 
-    // template <int dim>
-    // void OneStepRHS<dim>::fill_cell_rhs(
-    //          Vector<double> &cell_rhs,
-    //          FEValues<dim> &fe_values,
-    //          const unsigned int n_q_points,
-    //          const unsigned int dofs_per_cell)
-    // {
-    //     // rhs_tmp = 0.;
-    //     // for (unsigned d = 0; d < dim; ++d)
-    //     // {
-    //     //     diff_matrix[d].Tvmult_add (pres_tmp, u_n[d]);
-    //     // }
-    // }
+    template <int dim>
+    void OneStepRHS<dim>::fill_cell_rhs(
+             Vector<double> &cell_rhs,
+             FEValues<dim> &fe_values,
+             const unsigned int n_q_points,
+             const unsigned int dofs_per_cell)
+    {
+        // rhs_tmp = 0.;
+        // for (unsigned d = 0; d < dim; ++d)
+        // {
+        //     diff_matrix[d].Tvmult_add (pres_tmp, u_n[d]);
+        // }
+    }
 }
 #endif

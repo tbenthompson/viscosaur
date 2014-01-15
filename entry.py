@@ -12,8 +12,8 @@ import defaults
 # These two lines are required to prevent a weird openmpi bug
 # that causes mpi init to fail with "undefined symbol: mca_base_param_reg_int"
 # Found the fix here: http://fishercat.sr.unh.edu/trac/mrc-v3/ticket/5
-from ctypes import *
-mpi = CDLL('libmpi.so.0', RTLD_GLOBAL)
+import ctypes
+mpi = ctypes.CDLL('libmpi.so.0', ctypes.RTLD_GLOBAL)
 
 # Set up the parameters to be used.
 params = defaults.default_params()
@@ -24,8 +24,9 @@ params['abc'] = 1000
 instance = vc.Vc(sys.argv)
 
 # Setup a 2D poisson solver.
+pd = vc.ProblemData2D(params)
 rhs = vc.SinRHS2D()
-poisson = vc.Poisson2D(params)
+poisson = vc.Poisson2D(pd)
 
 # Run a poisson solve
 abc = poisson.run(rhs)

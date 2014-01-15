@@ -83,16 +83,22 @@ BOOST_PYTHON_MODULE(viscosaur)
     class_<vc::SinRHS<2>, bases<vc::PoissonRHS<2> > >("SinRHS2D", init<>());
         // .def("value", &vc::SinRHS<2>::value);
 
-    class_<vc::OneStepRHS<2>, bases<vc::PoissonRHS<2> > >("OneStepRHS2D", 
+    class_<vc::OneStepRHS<2>, bases<vc::PoissonRHS<2> >, boost::noncopyable>("OneStepRHS2D", 
         init<dealii::Function<2>&, dealii::Function<2>&,
-             dealii::DoFHandler<2>& >());
+             vc::ProblemData<2>& >());
         // .def("value", &vc::OneStepRHS<2>::value);
 
-    class_<vc::Poisson<2>, boost::noncopyable>("Poisson2D", init<dict>())
+    class_<vc::ProblemData<2>, boost::noncopyable>("ProblemData2D",
+                                                    init<dict>());
+    class_<vc::ProblemData<3>, boost::noncopyable>("ProblemData3D",
+                                                    init<dict>());
+    class_<vc::Poisson<2>, boost::noncopyable>("Poisson2D", 
+                                               init<vc::ProblemData<2>&>())
         .def("run", &vc::Poisson<2>::run)
         .def("get_dof_handler", &vc::Poisson<2>::get_dof_handler,
                 return_value_policy<reference_existing_object>());
-    class_<vc::Poisson<3>, boost::noncopyable>("Poisson3D", init<dict>())
+    class_<vc::Poisson<3>, boost::noncopyable>("Poisson3D", 
+                                                init<vc::ProblemData<3>&>())
         .def("run", &vc::Poisson<3>::run);
 }
 

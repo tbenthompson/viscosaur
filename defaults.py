@@ -10,8 +10,12 @@ def default_params():
     defaults['min_corner'] = vc.Point2D(100.0 / 1.0e4, 0.0)
     # maximum corner(x_max, y_max)
     defaults['max_corner'] = vc.Point2D(2.0, 2.0)
+
+    # Polynomial degree of the elements.
+    defaults['fe_degree'] = 8;
+
     # How many times to isotropically refine the grid initially.
-    defaults['initial_isotropic_refines'] = 6
+    defaults['initial_isotropic_refines'] = 5
     defaults['initial_adaptive_refines'] = 2
 
     # Maximum and minimum refinement levels
