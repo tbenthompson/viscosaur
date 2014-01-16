@@ -23,14 +23,6 @@ params['abc'] = 1000
 # and MPI.
 instance = vc.Vc(sys.argv)
 
-# Setup a 2D poisson solver.
-pd = vc.ProblemData2D(params)
-rhs = vc.SinRHS2D()
-poisson = vc.Poisson2D(pd)
-
-# Run a poisson solve
-abc = poisson.run(rhs)
-
 # We must define the slip fnc outside the TLA constructor, otherwise
 # it appears to get deleted (maybe by python?)
 sf = vc.CosSlipFnc(params['fault_depth'])
@@ -42,10 +34,19 @@ tla = vc.TwoLayerAnalytic(params['fault_slip'],
 initSzx = vc.InitSzx2D(tla)
 initSzy = vc.InitSzy2D(tla)
 
+# Setup a 2D poisson solver.
+pd = vc.ProblemData2D(params)
+rhs = vc.SinRHS2D()
+rhs2 = vc.OneStepRHS2D(initSzx, initSzy, pd)
+poisson = vc.Poisson2D(pd)
+
+# Run a poisson solve
+abc = poisson.run(rhs2)
+
+
 print "Whoa"
 dof_handler = poisson.get_dof_handler()
 print "Whoa2"
-rhs2 = vc.OneStepRHS2D(initSzx, initSzy, dof_handler)
 print "Whoa3"
 
 

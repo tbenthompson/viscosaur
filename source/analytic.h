@@ -77,7 +77,7 @@ namespace viscosaur
             virtual double value (const dealii::Point<dim>   &p,
                                   const unsigned int  component) const
             {
-                return tla->integral_Szx(p(0) * 10000, p(1) * 10000);
+                return tla->integral_Szx(p(0), p(1));
             }
         private:
             TwoLayerAnalytic* tla;
@@ -96,7 +96,7 @@ namespace viscosaur
             virtual double value (const dealii::Point<dim>   &p,
                                   const unsigned int  component) const
             {
-                return tla->integral_Szy(p(0) * 10000, p(1) * 10000);
+                return tla->integral_Szy(p(0), p(1));
             }
         private:
             TwoLayerAnalytic* tla;

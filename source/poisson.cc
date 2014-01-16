@@ -79,6 +79,14 @@ namespace viscosaur
                 0,
                 ZeroFunction<dim>(),
                 constraints);
+        VectorTools::interpolate_boundary_values(pd->dof_handler,
+                1,
+                ZeroFunction<dim>(),
+                constraints);
+        VectorTools::interpolate_boundary_values(pd->dof_handler,
+                3,
+                ZeroFunction<dim>(),
+                constraints);
         constraints.close();
 
         CompressedSimpleSparsityPattern* csp = 
@@ -135,7 +143,6 @@ namespace viscosaur
     assemble_system(PoissonRHS<dim>* rhs) 
     { 
         TimerOutput::Scope t(pd->computing_timer, "assembly");
-        const unsigned int fe_d = bp::extract<int>(pd->parameters["fe_degree"]);
         FEValues<dim> fe_values(pd->fe, pd->quadrature, 
                                 update_values | update_gradients | 
                                 update_quadrature_points | update_JxW_values); 
@@ -164,15 +171,18 @@ namespace viscosaur
             cell_rhs = 0;
 
             fe_values.reinit(cell);
-            rhs->fill_cell_rhs(cell_rhs, fe_values, n_q_points, dofs_per_cell);
-            fill_cell_matrix(cell_matrix, fe_values, n_q_points, dofs_per_cell);
-
             cell->get_dof_indices(local_dof_indices);
+
+            rhs->fill_cell_rhs(cell_rhs, fe_values, 
+                    n_q_points, dofs_per_cell, local_dof_indices);
+            fill_cell_matrix(cell_matrix, fe_values, 
+                             n_q_points, dofs_per_cell);
+
             constraints.distribute_local_to_global(cell_matrix,
-                    cell_rhs,
-                    local_dof_indices,
-                    system_matrix,
-                    system_rhs);
+                                                   cell_rhs,
+                                                   local_dof_indices,
+                                                   system_matrix,
+                                                   system_rhs);
         }
 
         system_matrix.compress(VectorOperation::add);
@@ -276,7 +286,8 @@ namespace viscosaur
     template <int dim>
     LA::MPI::Vector Poisson<dim>::run (PoissonRHS<dim>* rhs)
     {
-        const unsigned int n_cycles = 5;
+        const unsigned int n_cycles =
+            bp::extract<int>(pd->parameters["initial_adaptive_refines"]);
         for (unsigned int cycle = 0; cycle < n_cycles; ++cycle)
         {
 

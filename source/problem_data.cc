@@ -159,15 +159,20 @@ namespace viscosaur
             "  with error: " << l2_error <<
             std::endl;
 
-        parallel::distributed::GridRefinement::
-            refine_and_coarsen_fixed_number (triangulation,
-                    estimated_error_per_cell,
-                    0.5, 0.3);
-
         const unsigned int max_grid_level = 
             bp::extract<int>(parameters["max_grid_level"]);
         const unsigned int min_grid_level = 
             bp::extract<int>(parameters["min_grid_level"]);
+        const double refine_frac = 
+            bp::extract<double>(parameters["refine_frac"]);
+        const double coarse_frac = 
+            bp::extract<double>(parameters["coarse_frac"]);
+
+        parallel::distributed::GridRefinement::
+            refine_and_coarsen_fixed_number (triangulation,
+                    estimated_error_per_cell,
+                    refine_frac, coarse_frac);
+
 
         // Don't overrefine or underrefine. 
         if (triangulation.n_levels() > max_grid_level)

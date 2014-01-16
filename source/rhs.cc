@@ -1,14 +1,22 @@
 #include "rhs.h"
 #include "problem_data.h"
 
-#include <deal.II/lac/vector.h>
+#include <deal.II/base/timer.h>
 #include <deal.II/base/point.h>
 #include <deal.II/base/function.h>
-#include <deal.II/fe/fe_q.h>
 #include <deal.II/base/quadrature_lib.h>
+#include <deal.II/base/work_stream.h>
+#include <deal.II/lac/vector.h>
+#include <deal.II/fe/fe_q.h>
+#include <deal.II/numerics/vector_tools.h>
+#include <deal.II/numerics/data_out.h>
+
+#include <Python.h>
+#include <boost/python/extract.hpp>
 
 namespace viscosaur
 {
+    namespace bp = boost::python;
     using namespace dealii;
 
     template <int dim>
@@ -17,7 +25,8 @@ namespace viscosaur
     fill_cell_rhs(Vector<double> &cell_rhs,
                   FEValues<dim> &fe_values,
                   const unsigned int n_q_points,
-                  const unsigned int dofs_per_cell)
+                  const unsigned int dofs_per_cell,
+                     std::vector<types::global_dof_index> indices)
     {
         for (unsigned int q_point=0; q_point < n_q_points; ++q_point)
         {
@@ -50,125 +59,145 @@ namespace viscosaur
 
     template <int dim>
     OneStepRHS<dim>::
-    OneStepRHS(Function<dim> &init_cond_Szx,
-               Function<dim> &init_cond_Szy,
+    OneStepRHS(Function<dim> &p_init_cond_Szx,
+               Function<dim> &p_init_cond_Szy,
                ProblemData<dim> &p_pd)
     {
         pd = &p_pd;
+        init_cond_Szx = &p_init_cond_Szx;
+        init_cond_Szy = &p_init_cond_Szy;
 
-        // Vector<double> Szx(dof_handler.n_dofs());
-        // VectorTools::interpolate(dof_handler, init_cond_Szx, Szx);
+        // start_assembly();
+        // DataOut<dim> data_out;
+        // data_out.attach_dof_handler(dof_handler);
+        // data_out.add_data_vector(Szx, "Szx"); 
+        // data_out.add_data_vector(Szy, "Szy"); 
+        // data_out.build_patches();
 
-        // Vector<double> Szy(dof_handler.n_dofs());
-        // VectorTools::interpolate(dof_handler, init_cond_Szy, Szy);
-
+        // std::ofstream output("abcdef.vtk");
+        // data_out.write_vtk(output);
     }
-    //     //Create hanging node constraints for the differentiation matrix so 
-    //     //that we don't get unrealistic discontinuities in the rhs. Is this
-    //     //actually something that I should be doing?
-    //     constraints = *pd->create_constraints();
-    //     constraints.close();
-    //     CompressedSimpleSparsityPattern* csp = 
-    //         pd->create_sparsity_pattern(constraints);
-    //     for (int n = 0; n < dim; ++n)
-    //     {
-    //         diff_matrix[n].reinit(pd->locally_owned_dofs,
-    //                               pd->locally_owned_dofs,
-    //                               *csp,
-    //                               pd->mpi_comm);
-    //     }
 
-    //     // DataOut<dim> data_out;
-    //     // data_out.attach_dof_handler(dof_handler);
-    //     // data_out.add_data_vector(Szx, "Szx"); 
-    //     // data_out.add_data_vector(Szy, "Szy"); 
-    //     // data_out.build_patches();
+    template <int dim>
+    void 
+    OneStepRHS<dim>::
+    start_assembly()
+    {
+        TimerOutput::Scope t(pd->computing_timer, "rhs_assembly");
+        //Create sparsity pattern and distribute matrices amongst processors.
+        ConstraintMatrix temp;
+        CompressedSimpleSparsityPattern* csp = 
+            pd->create_sparsity_pattern(temp);
+        for (int d = 0; d < dim; d++)
+        {
+            diff_matrix[d].reinit(pd->locally_owned_dofs,
+                                  pd->locally_owned_dofs,
+                                  *csp,
+                                  pd->mpi_comm);
+        }
 
-    //     // std::ofstream output("abcdef.vtk");
-    //     // data_out.write_vtk(output);
-    // }
+        const unsigned int   dofs_per_cell = pd->fe.dofs_per_cell;
+        const unsigned int   n_q_points    = pd->quadrature.size();
+        FEValues<dim> fe_values(pd->fe, pd->quadrature,
+                                update_values | update_gradients | 
+                                update_quadrature_points | update_JxW_values); 
+        typename DoFHandler<dim>::active_cell_iterator
+            cell = pd->dof_handler.begin_active(),
+            endc = pd->dof_handler.end();
+        std::vector<types::global_dof_index> local_dof_indices(dofs_per_cell);
+        double value;
+        const double shear_modulus = 
+            bp::extract<double>(pd->parameters["shear_modulus"]);
+        const double time_step = 
+            bp::extract<double>(pd->parameters["time_step"]);
+        const double factor = 1.0 / (shear_modulus * time_step);
+        for (; cell!=endc; ++cell)
+        {
+            if (!cell->is_locally_owned())
+            {
+                continue;
+            }
+            fe_values.reinit(cell);
+            cell->get_dof_indices(local_dof_indices);
+            for (unsigned int q = 0; q < n_q_points; ++q)
+            {
+                for (unsigned int i = 0; i < dofs_per_cell; ++i)
+                {
+                    for (unsigned int j = 0; j < dofs_per_cell; ++j)
+                    {
+                        for (unsigned int d = 0; d < dim; d++)
+                        {
+                            value = factor * fe_values.JxW(q) *
+                                fe_values.shape_grad(i, q)[d] *
+                                fe_values.shape_value(j, q);
+                            diff_matrix[d].add(local_dof_indices[i],
+                                               local_dof_indices[j],
+                                               value);
+                        }
+                    }
+                }
+            }
+        }
+        for(int d = 0; d < dim; d++)
+        {
+            diff_matrix[d].compress(VectorOperation::add);
+        }
 
-    // template <int dim>
-    // void 
-    // OneStepRHS<dim>::
-    // initialize_diff_operator()
-    // {
-    //     InitDiffPerTaskData per_task_data (0, pd->fe);
-    //     InitDiffScratchData scratch_data (pd->fe, pd->quadrature,
-    //                                 update_gradients | update_JxW_values,
-    //                                 update_values);
-    //     for (unsigned int d=0; d<dim; ++d)
-    //     {
-    //         diff_matrix[d].reinit(sparsity_pattern);
-    //         per_task_data.d = d;
-    //         WorkStream::run(dof_handler.begin_active(),
-    //                         dof_handler.end(),
-    //                         *this,
-    //                         &OneStepRHS<dim>::assemble_one_cell_of_diff,
-    //                         &OneStepRHS<dim>::copy_diff_local_to_global,
-    //                         scratch_data,
-    //                         per_task_data);
-    //     }
-    // }
+        LA::MPI::Vector Szx;
+        LA::MPI::Vector Szy;
+        LA::MPI::Vector inv_visc;
+        InvViscosity fnc(*pd);
+        {
+            TimerOutput::Scope t(pd->computing_timer, "interpolation");
 
-    // template <int dim>
-    // void
-    // OneStepRHS<dim>::
-    // assemble_one_cell_of_diff(
-    //         const typename DoFHandler<dim>::active_cell_iterator &cell,
-    //                                InitDiffScratchData &scratch,
-    //                                InitDiffPerTaskData &data)
-    // {
-    //     scratch.fe_values.reinit(std_cxx1x::get<0> (SI.iterators));
+            Szx.reinit(pd->locally_owned_dofs, pd->mpi_comm);
+            VectorTools::interpolate(pd->dof_handler, *init_cond_Szx, Szx);
+            Szx.compress(VectorOperation::add);
 
-    //     std_cxx1x::get<0>(SI.iterators)->get_dof_indices
-    //         (data.local_dof_indices);
+            Szy.reinit(pd->locally_owned_dofs, pd->mpi_comm);
+            VectorTools::interpolate(pd->dof_handler, *init_cond_Szy, Szy);
+            Szy.compress(VectorOperation::add);
 
-    //     data.local_grad = 0.;
-    //     for (unsigned int q = 0; q < scratch.nqp; ++q)
-    //     {
-    //         for (unsigned int i = 0; i < data.dpc; ++i)
-    //         {
-    //             for (unsigned int j = 0; j < data.dpc; ++j)
-    //             {
-    //                 data.local_grad(i, j) += -scratch.fe_values.JxW(q) *
-    //                     scratch.fe_values.shape_grad(i, q)[data.d] *
-    //                     scratch.fe_values.shape_value(j, q);
-    //             }
-    //         }
-    //     }
-    // }
+            inv_visc.reinit(pd->locally_owned_dofs, pd->mpi_comm);
+            VectorTools::interpolate(pd->dof_handler, fnc, inv_visc);
+            inv_visc.compress(VectorOperation::add);
+            inv_visc *= -shear_modulus * time_step;
+            inv_visc.add(1.0);
+        }
+        Szx.scale(inv_visc);
+        Szy.scale(inv_visc);
 
-    // template <int dim>
-    // void
-    // OneStepRHS<dim>::
-    // copy_diff_local_to_global(InitDiffPerTaskData &data)
-    // {
-    //     for (unsigned int i = 0; i < data.dpc; ++i)
-    //     {
-    //         for (unsigned int j = 0; j < data.dpc; ++j)
-    //         {
-    //             diff_matrix[data.d].add(data.local_dof_indices[i],
-    //                                     data.local_dof_indices[j],
-    //                                     data.local_grad(i, j));
-    //         }
-    //     }
-    // }
+        rhs.reinit(pd->locally_owned_dofs, pd->mpi_comm);
+        rhs = 0;
+        diff_matrix[0].Tvmult_add(rhs, Szx);
+        diff_matrix[1].Tvmult_add(rhs, Szy);
+    }
 
     template <int dim>
     void OneStepRHS<dim>::fill_cell_rhs(
              Vector<double> &cell_rhs,
              FEValues<dim> &fe_values,
              const unsigned int n_q_points,
-             const unsigned int dofs_per_cell)
+             const unsigned int dofs_per_cell,
+             std::vector<types::global_dof_index> indices)
     {
-        // rhs_tmp = 0.;
-        // for (unsigned d = 0; d < dim; ++d)
-        // {
-        //     diff_matrix[d].Tvmult_add (pres_tmp, u_n[d]);
-        // }
+        for(int i = 0; i < indices.size(); i++)
+        {
+            if (!rhs.in_local_range(indices[i])){
+                // cout << "WEIRD" << std::endl;
+                continue;
+            }
+            cell_rhs[i] = rhs[indices[i]];
+        }
     }
 
+    template <int dim>
+    OneStepRHS<dim>::InvViscosity::InvViscosity(ProblemData<dim> &p_pd){
+        layer_depth = 
+            bp::extract<double>(p_pd.parameters["fault_depth"]);
+        inv_viscosity = 1.0 /
+            bp::extract<double>(p_pd.parameters["viscosity"]);
+    }
 
     // ESSENTIAL: explicity define the template types we will use.
     // Otherwise, the template definition needs to go in the header file, which

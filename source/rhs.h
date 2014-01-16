@@ -2,6 +2,7 @@
 #define __viscosaur_rhs_h
 #include <vector>
 #include <deal.II/base/types.h>
+#include <deal.II/base/function.h>
 #include <deal.II/fe/fe_values.h>
 #include <deal.II/lac/full_matrix.h>
 #include <deal.II/lac/constraint_matrix.h>
@@ -29,7 +30,8 @@ namespace viscosaur
                      dealii::Vector<double> &cell_rhs,
                      dealii::FEValues<dim, dim> &fe_values,
                      const unsigned int n_q_points,
-                     const unsigned int dofs_per_cell) = 0;
+                     const unsigned int dofs_per_cell,
+                     std::vector<dealii::types::global_dof_index> indices) = 0;
             virtual void start_assembly() = 0;
     };
 
@@ -37,10 +39,11 @@ namespace viscosaur
     class SinRHS: public PoissonRHS<dim>
     {
         public:
-            virtual void fill_cell_rhs(dealii::Vector<double> &cell_rhs,
+            virtual void fill_cell_rhs(dealii::Vector<double> &cell_rhs,       
                                      dealii::FEValues<dim> &fe_values,
                                      const unsigned int n_q_points,
-                                     const unsigned int dofs_per_cell);
+                                     const unsigned int dofs_per_cell,
+                     std::vector<dealii::types::global_dof_index> indices);
             virtual void start_assembly() {}
         private:
             double value(dealii::Point<dim, double> point);
@@ -58,50 +61,32 @@ namespace viscosaur
                      dealii::Vector<double> &cell_rhs,
                      dealii::FEValues<dim> &fe_values,
                      const unsigned int n_q_points,
-                     const unsigned int dofs_per_cell);
-            virtual void start_assembly() {}
+                     const unsigned int dofs_per_cell,
+                     std::vector<dealii::types::global_dof_index> indices);
+            virtual void start_assembly();
         private:
-            struct InitDiffPerTaskData
+            class InvViscosity: public dealii::Function<dim>
             {
-                unsigned int              d;
-                unsigned int              dpc;
-                dealii::FullMatrix<double>        local_grad;
-                std::vector<dealii::types::global_dof_index> local_dof_indices;
+                public:
+                    InvViscosity(ProblemData<dim> &p_pd);
 
-                InitDiffPerTaskData(const unsigned int p_d,
-                                    const unsigned int p_dpc):
-                    d(p_d),
-                    dpc(p_dpc),
-                    local_grad(p_dpc, p_dpc),
-                    local_dof_indices(p_dpc)
-                {}
+                    virtual double value(const dealii::Point<dim> &p,
+                            const unsigned int component) const
+                    {
+                        if (p(1) < layer_depth)
+                        {
+                            return 0;
+                        }
+                        return inv_viscosity;
+                    }
+                    double layer_depth;
+                    double inv_viscosity;
             };
-
-            struct InitDiffScratchData
-            {
-                unsigned int  nqp;
-                dealii::FEValues<dim> fe_values;
-                InitDiffScratchData(const dealii::FE_Q<dim, dim> &fe,
-                                   const dealii::QGauss<dim> &quad,
-                                   const dealii::UpdateFlags flags):
-                    nqp(quad.size()),
-                    fe_values(fe, quad, flags)
-                {}
-                InitDiffScratchData (const InitDiffScratchData &data):
-                    nqp (data.nqp),
-                    fe_values(data.fe_values.get_fe(),
-                                data.fe_values.get_quadrature(),
-                                data.fe_values.get_update_flags())
-                {}
-            };
-            // void initialize_diff_operator();
-            // void copy_diff_local_to_global(const InitDiffPerTaskData &data);
-            // void assemble_one_cell_of_diff(
-            //     const typename DoFHandler<dim>::active_cell_iterator &cell,
-            //     InitDiffScratchData &scratch,
-            //     InitDiffPerTaskData &data);
-            // 
+            
             LA::MPI::SparseMatrix diff_matrix[dim];
+            LA::MPI::Vector rhs;
+            dealii::Function<dim>* init_cond_Szx;
+            dealii::Function<dim>* init_cond_Szy;
             dealii::ConstraintMatrix constraints;
             ProblemData<dim>* pd;
     };

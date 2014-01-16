@@ -7,24 +7,28 @@ def default_params():
 
     # Meshing descriptors.
     # minimum corner(x_min, y_min)
-    defaults['min_corner'] = vc.Point2D(100.0 / 1.0e4, 0.0)
+    defaults['min_corner'] = vc.Point2D(100.0, 0.0)
     # maximum corner(x_max, y_max)
-    defaults['max_corner'] = vc.Point2D(2.0, 2.0)
+    defaults['max_corner'] = vc.Point2D(20000.0, 20000.0)
 
     # Polynomial degree of the elements.
-    defaults['fe_degree'] = 8;
+    defaults['fe_degree'] = 2;
 
     # How many times to isotropically refine the grid initially.
     defaults['initial_isotropic_refines'] = 5
-    defaults['initial_adaptive_refines'] = 2
+    defaults['initial_adaptive_refines'] = 10
 
     # Maximum and minimum refinement levels
-    defaults['max_grid_level'] = 9
+    defaults['max_grid_level'] = 12
     defaults['min_grid_level'] = 3
+
+    # Refinement and coarsening percentages
+    defaults['refine_frac'] = 0.2
+    defaults['coarse_frac'] = 0.2
 
     # time stepping
     defaults['t_max'] = 100.0 * secs_in_a_year
-    defaults['delta_t'] = defaults['t_max'] / 1.0
+    defaults['time_step'] = defaults['t_max'] / 100.0
 
     # Adaptive meshing parameters
     # defaults['adaptive_mesh'] = False
