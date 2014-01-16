@@ -29,6 +29,7 @@ namespace viscosaur
     {
         public:
             ProblemData(boost::python::dict &params);
+            ~ProblemData();
             void init_mesh();
             void init_dofs();
             void refine_grid(LA::MPI::Vector &local_solution);

@@ -52,21 +52,12 @@ namespace viscosaur
     {
         pd = &p_pd;
         pd->pcout << "Setting up the Poisson solver." << std::endl;
-        setup_system();
     }
 
 
 
     template <int dim>
-    Poisson<dim>::~Poisson ()
-    {
-        pd->dof_handler.clear();
-    }
-
-
-
-    template <int dim>
-    void Poisson<dim>::setup_system ()
+    void Poisson<dim>::setup_system(Function<dim> &bc)
     {
         //The theme in this function is that only the locally relevant or 
         //locally owned dofs will be made known to any given processor.
@@ -76,17 +67,11 @@ namespace viscosaur
         // Constrain hanging nodes and boundary conditions.
         constraints = *pd->create_constraints();
         VectorTools::interpolate_boundary_values(pd->dof_handler,
-                0,
-                ZeroFunction<dim>(),
-                constraints);
+                0, bc, constraints);
         VectorTools::interpolate_boundary_values(pd->dof_handler,
-                1,
-                ZeroFunction<dim>(),
-                constraints);
+                1, bc, constraints);
         VectorTools::interpolate_boundary_values(pd->dof_handler,
-                3,
-                ZeroFunction<dim>(),
-                constraints);
+                3, bc, constraints);
         constraints.close();
 
         CompressedSimpleSparsityPattern* csp = 
@@ -140,7 +125,7 @@ namespace viscosaur
     template <int dim>
     void 
     Poisson<dim>::
-    assemble_system(PoissonRHS<dim>* rhs) 
+    assemble_system(PoissonRHS<dim> &rhs) 
     { 
         TimerOutput::Scope t(pd->computing_timer, "assembly");
         FEValues<dim> fe_values(pd->fe, pd->quadrature, 
@@ -158,7 +143,7 @@ namespace viscosaur
             cell = pd->dof_handler.begin_active(),
             endc = pd->dof_handler.end();
 
-        rhs->start_assembly();
+        rhs.start_assembly();
 
         for (; cell!=endc; ++cell)
         {
@@ -173,7 +158,7 @@ namespace viscosaur
             fe_values.reinit(cell);
             cell->get_dof_indices(local_dof_indices);
 
-            rhs->fill_cell_rhs(cell_rhs, fe_values, 
+            rhs.fill_cell_rhs(cell_rhs, fe_values, 
                     n_q_points, dofs_per_cell, local_dof_indices);
             fill_cell_matrix(cell_matrix, fe_values, 
                              n_q_points, dofs_per_cell);
@@ -284,20 +269,19 @@ namespace viscosaur
 
 
     template <int dim>
-    LA::MPI::Vector Poisson<dim>::run (PoissonRHS<dim>* rhs)
+    LA::MPI::Vector Poisson<dim>::run(PoissonRHS<dim> &rhs, Function<dim> &bc)
     {
         const unsigned int n_cycles =
             bp::extract<int>(pd->parameters["initial_adaptive_refines"]);
         for (unsigned int cycle = 0; cycle < n_cycles; ++cycle)
         {
-
             if (cycle != 0)
             {
                 pd->refine_grid(locally_relevant_solution);
-                setup_system();
                 //
                 // Build the matrices
             }
+            setup_system(bc);
             pd->pcout << "Cycle " << cycle << ':' << std::endl;
 
             assemble_system(rhs);

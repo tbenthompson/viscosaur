@@ -101,5 +101,31 @@ namespace viscosaur
         private:
             TwoLayerAnalytic* tla;
     };
+
+    template <int dim>
+    class Velocity: public dealii::Function<dim>
+    {
+        public:
+            Velocity(TwoLayerAnalytic &p_tla): 
+                dealii::Function<dim>(1)
+            {
+                tla = &p_tla;
+                t = 0;
+            } 
+
+            void set_t(double p_t)
+            {
+                t = p_t;
+            }
+
+            virtual double value (const dealii::Point<dim>   &p,
+                                  const unsigned int  component) const
+            {
+                return tla->integral_velocity(p(0), p(1), t);
+            }
+        private:
+            TwoLayerAnalytic* tla;
+            double t;
+    };
 }
 #endif

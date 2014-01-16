@@ -76,6 +76,10 @@ BOOST_PYTHON_MODULE(viscosaur)
     class_<vc::InitSzy<2>, bases<dealii::Function<2> > >
         ("InitSzy2D", init<vc::TwoLayerAnalytic&>())
         .def("value", &vc::InitSzy<2>::value);
+    class_<vc::Velocity<2>, bases<dealii::Function<2> > >
+        ("Velocity2D", init<vc::TwoLayerAnalytic&>())
+        .def("value", &vc::Velocity<2>::value)
+        .def("set_t", &vc::Velocity<2>::set_t);
 
     /* Expose the Poisson solver. I separate the 2D and 3D because exposing
      * the templating to python is difficult.

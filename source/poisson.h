@@ -14,6 +14,7 @@ namespace dealii
     //if we forward declare them.
     template <int dim, int spacedim> class DoFHandler;
     template <int dim, int spacedim> class FEValues;
+    template <int dim> class Function;
 }
 
 namespace viscosaur
@@ -39,18 +40,36 @@ namespace viscosaur
      * Note that this entire class is defined in the header. This is required
      * for a templated class. C++11 may have "fixed" this. Check?
      */
+    class InvViscosity: public dealii::Function<dim>
+    {
+        public:
+            InvViscosity(ProblemData<dim> &p_pd);
+
+            virtual double value(const dealii::Point<dim> &p,
+                    const unsigned int component) const
+            {
+                if (p(1) < layer_depth)
+                {
+                    return 0;
+                }
+                return inv_viscosity;
+            }
+            double layer_depth;
+            double inv_viscosity;
+    };
     template <int dim>
     class Poisson
     {
         public:
-            Poisson(ProblemData<dim> &p_pd);
-            ~Poisson ();
+            Poisson(dealii::Function<dim> &init_cond_Szx,
+                    dealii::Function<dim> &init_cond_Szy,
+                    ProblemData<dim> &p_pd);
 
-            LA::MPI::Vector run (PoissonRHS<dim>* rhs);
+            LA::MPI::Vector run(dealii::Function<dim> &bc);
             dealii::DoFHandler<dim, dim>* get_dof_handler();
 
         private:
-            void setup_system ();
+            void setup_system(dealii::Function<dim> &bc);
 
             /* Assembly functions.
              */
@@ -60,7 +79,7 @@ namespace viscosaur
                     const unsigned int n_q_points,
                     const unsigned int dofs_per_cell);
 
-            void assemble_system (PoissonRHS<dim>* rhs);
+            void assemble_system(PoissonRHS<dim>& rhs);
 
             void solve ();
 
@@ -70,8 +89,12 @@ namespace viscosaur
             void init_mesh ();
             
             ProblemData<dim>* pd;
+            dealii::Function<dim>* init_cond_Szx;
+            dealii::Function<dim>* init_cond_Szy;
             dealii::ConstraintMatrix constraints;
             LA::MPI::SparseMatrix system_matrix;
+            LA::MPI::SparseMatrix diff_matrix[dim];
+            LA::MPI::Vector       div_strs;
             LA::MPI::Vector       locally_relevant_solution;
             LA::MPI::Vector       system_rhs;
     };

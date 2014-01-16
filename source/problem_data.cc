@@ -43,6 +43,12 @@ namespace viscosaur
     }
 
     template <int dim>
+    ProblemData<dim>::~ProblemData()
+    {
+        dof_handler.clear();
+    }
+
+    template <int dim>
     void
     ProblemData<dim>::
     init_dofs()
@@ -153,10 +159,12 @@ namespace viscosaur
 
         //Print the local L2 error estimate.
         double l2_error = estimated_error_per_cell.l2_norm();
+        double l2_soln = local_solution.l2_norm();
+        double percent_error = l2_error / l2_soln;
         std::cout << "Processor: " + 
             Utilities::int_to_string(
                     Utilities::MPI::this_mpi_process(mpi_comm), 4) + 
-            "  with error: " << l2_error <<
+            "  with estimated error: " << percent_error <<
             std::endl;
 
         const unsigned int max_grid_level = 

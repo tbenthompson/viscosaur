@@ -30,9 +30,10 @@ tla = vc.TwoLayerAnalytic(params['fault_slip'],
                           params['fault_depth'],
                           params['shear_modulus'],
                           params['viscosity'], sf)
-
 initSzx = vc.InitSzx2D(tla)
 initSzy = vc.InitSzy2D(tla)
+vel = vc.Velocity2D(tla)
+vel.set_t(params['time_step'])
 
 # Setup a 2D poisson solver.
 pd = vc.ProblemData2D(params)
@@ -41,7 +42,7 @@ rhs2 = vc.OneStepRHS2D(initSzx, initSzy, pd)
 poisson = vc.Poisson2D(pd)
 
 # Run a poisson solve
-abc = poisson.run(rhs2)
+abc = poisson.run(rhs2, vel)
 
 
 print "Whoa"

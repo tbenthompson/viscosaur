@@ -28,7 +28,7 @@ namespace viscosaur
                   const unsigned int dofs_per_cell,
                      std::vector<types::global_dof_index> indices)
     {
-        for (unsigned int q_point=0; q_point < n_q_points; ++q_point)
+        for (unsigned int q_point=0; q_point < n_q_points; ++q_point)          
         {
             double rhs_value = value(
                     fe_values.quadrature_point(q_point));
