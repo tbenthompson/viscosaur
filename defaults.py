@@ -12,14 +12,14 @@ def default_params():
     defaults['max_corner'] = vc.Point2D(1.0e5, 1.0e5)
 
     # Polynomial degree of the elements.
-    defaults['fe_degree'] = 3;
+    defaults['fe_degree'] = 2;
 
     # How many times to isotropically refine the grid initially.
-    defaults['initial_isotropic_refines'] = 3
-    defaults['initial_adaptive_refines'] = 20
+    defaults['initial_isotropic_refines'] = 2
+    defaults['initial_adaptive_refines'] = 16
 
     # Maximum and minimum refinement levels
-    defaults['max_grid_level'] = 15
+    defaults['max_grid_level'] = 20
     defaults['min_grid_level'] = 2
 
     # Refinement and coarsening percentages
@@ -28,7 +28,7 @@ def default_params():
 
     # time stepping
     defaults['t_max'] = 100.0 * secs_in_a_year
-    defaults['time_step'] = defaults['t_max'] / 100.0
+    defaults['time_step'] = defaults['t_max'] / 10.0
 
     # Where to save data?
     defaults['clear_data_dir'] = True

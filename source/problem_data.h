@@ -44,6 +44,7 @@ namespace viscosaur
             dealii::FE_Q<dim>             fe;
             dealii::QGaussLobatto<dim>    quadrature;
             dealii::IndexSet              locally_owned_dofs;
+            dealii::IndexSet              locally_active_dofs;
             dealii::IndexSet              locally_relevant_dofs;
             dealii::ConditionalOStream    pcout;
             dealii::TimerOutput           computing_timer;

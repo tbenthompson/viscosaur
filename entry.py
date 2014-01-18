@@ -1,7 +1,6 @@
 import sys
 import viscosaur as vc
 import copy
-import yep
 import defaults
 # To profile the C++ and python use yep with
 # python -m yep entry.py
@@ -23,36 +22,25 @@ params['abc'] = 1000
 # and MPI.
 instance = vc.Vc(sys.argv)
 
-# We must define the slip fnc outside the TLA constructor, otherwise
-# it appears to get deleted (maybe by python?)
-sf = vc.CosSlipFnc(params['fault_depth'])
-tla = vc.TwoLayerAnalytic(params['fault_slip'],
-                          params['fault_depth'],
-                          params['shear_modulus'],
-                          params['viscosity'], sf)
-initSzx = vc.InitSzx2D(tla)
-initSzy = vc.InitSzy2D(tla)
-vel = vc.Velocity2D(tla)
-vel.set_t(params['time_step'])
+def run():
+    # We must define the slip fnc outside the TLA constructor, otherwise
+    # it appears to get deleted (maybe by python?)
+    sf = vc.ConstantSlipFnc(params['fault_depth'])
+    tla = vc.TwoLayerAnalytic(params['fault_slip'],
+                              params['fault_depth'],
+                              params['shear_modulus'],
+                              params['viscosity'], sf)
+    initSzx = vc.SimpleInitSzx2D(tla)
+    initSzy = vc.SimpleInitSzy2D(tla)
+    vel = vc.SimpleVelocity2D(tla)
+    vel.set_t(params['time_step'])
 
-# Setup a 2D poisson solver.
-pd = vc.ProblemData2D(params)
-rhs = vc.SinRHS2D()
-rhs2 = vc.OneStepRHS2D(initSzx, initSzy, pd)
-poisson = vc.Poisson2D(pd)
+    # Setup a 2D poisson solver.
+    pd = vc.ProblemData2D(params)
+    poisson = vc.Poisson2D(initSzx, initSzy, pd)
 
-# Run a poisson solve
-abc = poisson.run(rhs2, vel)
+    # Run a poisson solve
+    abc = poisson.run(vel)
 
-
-print "Whoa"
-dof_handler = poisson.get_dof_handler()
-print "Whoa2"
-print "Whoa3"
-
-
-
+run()
 print "From python: Poisson complete"
-
-# Stop the profiler
-yep.stop()

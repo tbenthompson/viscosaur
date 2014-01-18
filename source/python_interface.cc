@@ -62,7 +62,8 @@ BOOST_PYTHON_MODULE(viscosaur)
             init<double, double, double, double,
                  vc::SlipFnc&>())
         .def("simple_velocity", &vc::TwoLayerAnalytic::simple_velocity)
-        .def("simple_stress", &vc::TwoLayerAnalytic::simple_stress)
+        .def("simple_Szx", &vc::TwoLayerAnalytic::simple_Szx)
+        .def("simple_Szy", &vc::TwoLayerAnalytic::simple_Szy)
         .def("integral_velocity", &vc::TwoLayerAnalytic::integral_velocity)
         .def("integral_Szx", &vc::TwoLayerAnalytic::integral_Szx)
         .def("integral_Szy", &vc::TwoLayerAnalytic::integral_Szy);
@@ -76,39 +77,38 @@ BOOST_PYTHON_MODULE(viscosaur)
     class_<vc::InitSzy<2>, bases<dealii::Function<2> > >
         ("InitSzy2D", init<vc::TwoLayerAnalytic&>())
         .def("value", &vc::InitSzy<2>::value);
+    class_<vc::SimpleInitSzx<2>, bases<dealii::Function<2> > >
+        ("SimpleInitSzx2D", init<vc::TwoLayerAnalytic&>())
+        .def("value", &vc::InitSzx<2>::value);
+    class_<vc::SimpleInitSzy<2>, bases<dealii::Function<2> > >
+        ("SimpleInitSzy2D", init<vc::TwoLayerAnalytic&>())
+        .def("value", &vc::InitSzy<2>::value);
     class_<vc::Velocity<2>, bases<dealii::Function<2> > >
         ("Velocity2D", init<vc::TwoLayerAnalytic&>())
         .def("value", &vc::Velocity<2>::value)
         .def("set_t", &vc::Velocity<2>::set_t);
+    class_<vc::SimpleVelocity<2>, bases<dealii::Function<2> > >
+        ("SimpleVelocity2D", init<vc::TwoLayerAnalytic&>())
+        .def("value", &vc::SimpleVelocity<2>::value)
+        .def("set_t", &vc::SimpleVelocity<2>::set_t);
 
     /* Expose the Poisson solver. I separate the 2D and 3D because exposing
      * the templating to python is difficult.
      * boost::noncopyable is required, because the copy constructor of some
      * of the private members of Poisson are private
      */ 
-    class_<vc::PoissonRHS<2>, boost::noncopyable>("PoissonRHS2D", no_init);
-        // .def("value", pure_virtual(&vc::PoissonRHS<2>::value));
-    class_<vc::PoissonRHS<3>, boost::noncopyable>("PoissonRHS3D", no_init);
-        // .def("value", pure_virtual(&vc::PoissonRHS<3>::value));
-    class_<vc::SinRHS<2>, bases<vc::PoissonRHS<2> > >("SinRHS2D", init<>());
-        // .def("value", &vc::SinRHS<2>::value);
-
-    class_<vc::OneStepRHS<2>, bases<vc::PoissonRHS<2> >, boost::noncopyable>("OneStepRHS2D", 
-        init<dealii::Function<2>&, dealii::Function<2>&,
-             vc::ProblemData<2>& >());
-        // .def("value", &vc::OneStepRHS<2>::value);
 
     class_<vc::ProblemData<2>, boost::noncopyable>("ProblemData2D",
                                                     init<dict&>());
     class_<vc::ProblemData<3>, boost::noncopyable>("ProblemData3D",
                                                     init<dict&>());
     class_<vc::Poisson<2>, boost::noncopyable>("Poisson2D", 
-                                               init<vc::ProblemData<2>&>())
-        .def("run", &vc::Poisson<2>::run)
-        .def("get_dof_handler", &vc::Poisson<2>::get_dof_handler,
-                return_value_policy<reference_existing_object>());
+        init<dealii::Function<2>&, dealii::Function<2>&, 
+                                    vc::ProblemData<2>&>())
+        .def("run", &vc::Poisson<2>::run);
     class_<vc::Poisson<3>, boost::noncopyable>("Poisson3D", 
-                                                init<vc::ProblemData<3>&>())
+        init<dealii::Function<3>&, dealii::Function<3>&, 
+                                    vc::ProblemData<3>&>())
         .def("run", &vc::Poisson<3>::run);
 }
 

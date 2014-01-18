@@ -104,8 +104,7 @@ namespace viscosaur
         return v;
     }
 
-    boost::array<double, 2> TwoLayerAnalytic::simple_stress(double x, 
-                                                             double y) 
+    double TwoLayerAnalytic::simple_Szx(double x, double y) const
     {
         double factor, main_term, image_term, Szx, Szy;
         factor = (this->fault_slip * this->shear_modulus) / (2 * dealii::numbers::PI);
@@ -114,15 +113,18 @@ namespace viscosaur
         image_term = -(y + this->fault_depth) / 
             (pow((y + this->fault_depth), 2) + pow(x, 2));
         Szx = factor * (main_term + image_term);
+        return Szx;
+    }
+
+    double TwoLayerAnalytic::simple_Szy(double x, double y) const
+    {
+        double factor, main_term, image_term, Szx, Szy;
+        factor = (this->fault_slip * this->shear_modulus) / (2 * dealii::numbers::PI);
 
         main_term = -x / (pow(x, 2) + pow((y - this->fault_depth), 2));
         image_term = x / (pow(x, 2) + pow((y + this->fault_depth), 2));
         Szy = factor * (main_term + image_term);
-
-        //Inner braces for elements of array,
-        //Outer braces for struct initialization
-        boost::array<double, 2> retval = {{Szx, Szy}};
-        return retval;
+        return Szy;
     }
 
     struct AnalyticFncParameters {

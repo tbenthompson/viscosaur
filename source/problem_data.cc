@@ -54,17 +54,19 @@ namespace viscosaur
     init_dofs()
     {
         // Collect dofs from the finite elements for the whole triangulation
-        // Internally, this also does load balancing and makes sure that each
+        // Internally, this also does load balancing and makes sure that each   
         // process has a chunk of the dofs. The process will not be aware of 
         // any dofs outside of the owned dofs and the ghost adjacent dofs.
         dof_handler.distribute_dofs(fe);
 
         // Set the dofs that this process will actually solve.
-        locally_owned_dofs = dof_handler.locally_owned_dofs ();
+        locally_owned_dofs = dof_handler.locally_owned_dofs();
 
         // Set the dofs that this process will need to perform solving
         DoFTools::extract_locally_relevant_dofs(dof_handler,
                 locally_relevant_dofs);
+        DoFTools::extract_locally_active_dofs(dof_handler,
+                locally_active_dofs);
     }
 
     template <int dim>

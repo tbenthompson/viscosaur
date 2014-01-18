@@ -93,9 +93,9 @@ namespace Step48
     parallel::distributed::Vector<double> inv_mass_matrix;
 
     void local_apply (const MatrixFree<dim,double>               &data,
-                      parallel::distributed::Vector<double>      &dst,
-                      const std::vector<parallel::distributed::Vector<double>*> &src,
-                      const std::pair<unsigned int,unsigned int> &cell_range) const;
+              parallel::distributed::Vector<double>      &dst,
+              const std::vector<parallel::distributed::Vector<double>*> &src,
+              const std::pair<unsigned int,unsigned int> &cell_range) const;
   };
 
 
@@ -245,7 +245,7 @@ namespace Step48
   {
   public:
     ExactSolution (const unsigned int n_components = 1,
-                   const double time = 0.) : Function<dim>(n_components, time) {}
+                   const double time = 0.): Function<dim>(n_components, time) {}
     virtual double value (const Point<dim> &p,
                           const unsigned int component = 0) const;
   };
@@ -302,7 +302,9 @@ namespace Step48
 
     MatrixFree<dim,double> matrix_free_data;
 
-    parallel::distributed::Vector<double> solution, old_solution, old_old_solution;
+    parallel::distributed::Vector<double> solution
+    parallel::distributed::Vector<double> old_solution 
+    parallel::distributed::Vector<double> old_old_solution;
 
     const unsigned int n_global_refinements;
     double time, time_step;

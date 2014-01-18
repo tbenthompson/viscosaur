@@ -23,6 +23,7 @@ namespace viscosaur
      */
     template <int dim> class ProblemData;
     template <int dim> class PoissonRHS;
+    template <int dim> class Velocity;
 
 
     /* Using higher order polynomials results in a problem with very slow 
@@ -40,6 +41,7 @@ namespace viscosaur
      * Note that this entire class is defined in the header. This is required
      * for a templated class. C++11 may have "fixed" this. Check?
      */
+    template <int dim>
     class InvViscosity: public dealii::Function<dim>
     {
         public:
@@ -57,44 +59,38 @@ namespace viscosaur
             double layer_depth;
             double inv_viscosity;
     };
+
     template <int dim>
     class Poisson
     {
         public:
-            Poisson(dealii::Function<dim> &init_cond_Szx,
-                    dealii::Function<dim> &init_cond_Szy,
+            Poisson(dealii::Function<dim> &p_init_cond_Szx,
+                    dealii::Function<dim> &p_init_cond_Szy,
                     ProblemData<dim> &p_pd);
 
             LA::MPI::Vector run(dealii::Function<dim> &bc);
-            dealii::DoFHandler<dim, dim>* get_dof_handler();
 
         private:
             void setup_system(dealii::Function<dim> &bc);
 
-            /* Assembly functions.
-             */
-            void fill_cell_matrix(
-                    dealii::FullMatrix<double> &cell_matrix,
-                    dealii::FEValues<dim, dim> &fe_values,
-                    const unsigned int n_q_points,
-                    const unsigned int dofs_per_cell);
 
-            void assemble_system(PoissonRHS<dim>& rhs);
+            /* Build the relevant matrices. */
+            void assemble_system();
 
             void solve ();
 
             std::string output_filename(const unsigned int cycle,
                                         const unsigned int subdomain) const;
-            void output_results (const unsigned int cycle) const;
+            void output_results (const unsigned int cycle,
+                                 dealii::Function<dim> &vel) const;
             void init_mesh ();
             
             ProblemData<dim>* pd;
             dealii::Function<dim>* init_cond_Szx;
             dealii::Function<dim>* init_cond_Szy;
             dealii::ConstraintMatrix constraints;
+            dealii::ConstraintMatrix hanging_node_constraints;
             LA::MPI::SparseMatrix system_matrix;
-            LA::MPI::SparseMatrix diff_matrix[dim];
-            LA::MPI::Vector       div_strs;
             LA::MPI::Vector       locally_relevant_solution;
             LA::MPI::Vector       system_rhs;
     };
