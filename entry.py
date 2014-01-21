@@ -22,7 +22,9 @@ params['abc'] = 1000
 # and MPI.
 instance = vc.Vc(sys.argv)
 
-def run():
+pd = vc.ProblemData2D(params)
+
+def one_step_vel():
     # We must define the slip fnc outside the TLA constructor, otherwise
     # it appears to get deleted (maybe by python?)
     sf = vc.ConstantSlipFnc(params['fault_depth'])
@@ -36,11 +38,28 @@ def run():
     vel.set_t(params['time_step'])
 
     # Setup a 2D poisson solver.
-    pd = vc.ProblemData2D(params)
     poisson = vc.Poisson2D(initSzx, initSzy, pd)
 
     # Run a poisson solve
     abc = poisson.run(vel)
 
-run()
-print "From python: Poisson complete"
+def one_step_strs():
+    # We must define the slip fnc outside the TLA constructor, otherwise
+    # it appears to get deleted (maybe by python?)
+    sf = vc.ConstantSlipFnc(params['fault_depth'])
+    tla = vc.TwoLayerAnalytic(params['fault_slip'],
+                              params['fault_depth'],
+                              params['shear_modulus'],
+                              params['viscosity'], sf)
+    initSzx = vc.SimpleInitSzx2D(tla)
+    initSzy = vc.SimpleInitSzy2D(tla)
+    # Maybe separate out the stress op on the python side, so that I can have
+    # different types, (forward Euler, backward Euler, BDF2, BDF4, etc)
+    strs_update = vc.Stress2D(initSzx, initSzy, pd)
+    for i in range(100):
+        strs_update.step()
+    print "Done!!!!"
+
+# one_step_vel()
+one_step_strs()
+print "From python: run complete"

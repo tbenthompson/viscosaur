@@ -6,33 +6,41 @@
 #include <deal.II/lac/parallel_vector.h>
 #include <deal.II/matrix_free/matrix_free.h>
 
+
 namespace viscosaur
 {
     template <int dim> class ProblemData; 
+    template <int dim, int fe_degree> class StressOp;
+
+    const unsigned int fe_degree = 2;
     
     template <int dim>
     class Stress
     {
         public:
-            Stress(ProblemData<dim> &p_pd);
-            void run();
+            Stress(dealii::Function<dim> &init_szx, 
+                   dealii::Function<dim> &init_szy, 
+                   ProblemData<dim> &p_pd);
+            ~Stress();
+            void step();
 
         private:
             void init();
-            void output_results(const unsigned int timestep_number);
 
             dealii::ConstraintMatrix     constraints;
-            dealii::MatrixFree<dim,double> matrix_free_data;
-            dealii::parallel::distributed::Vector<double> solution;
-            dealii::parallel::distributed::Vector<double> old_solution;
-            dealii::parallel::distributed::Vector<double> old_old_solution;
+            dealii::MatrixFree<dim,double> matrix_free_szx;
+            dealii::MatrixFree<dim,double> matrix_free_szy;
+            dealii::parallel::distributed::Vector<double> szx;
+            dealii::parallel::distributed::Vector<double> szy;
+            dealii::parallel::distributed::Vector<double> old_szx;
+            dealii::parallel::distributed::Vector<double> old_szy;
             ProblemData<dim>* pd;
+            StressOp<dim, fe_degree>* op_szx;
+            StressOp<dim, fe_degree>* op_szy;
 
-            const unsigned int n_global_refinements;
-            double time, time_step;
-            const double final_time;
-            const double cfl_number;
-            const unsigned int output_timestep_skip;
+            double time;
+            double time_step;
+            unsigned int timestep_number;
     };
 }
 #endif

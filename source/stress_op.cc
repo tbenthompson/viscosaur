@@ -1,4 +1,6 @@
 #include "stress_op.h"
+#include "problem_data.h"
+#include "poisson.h"
 
 #include <deal.II/base/logstream.h>
 #include <deal.II/base/utilities.h>
@@ -13,6 +15,7 @@
 #include <deal.II/lac/constraint_matrix.h>
 #include <deal.II/fe/fe_q.h>
 #include <deal.II/fe/fe_values.h>
+#include <deal.II/matrix_free/fe_evaluation.h>
 #include <deal.II/numerics/vector_tools.h>
 #include <deal.II/numerics/data_out.h>
 #include <deal.II/distributed/tria.h>
@@ -21,14 +24,22 @@
 #include <iostream>
 #include <iomanip>
 
+#include <boost/python/extract.hpp>
+
 namespace viscosaur
 {
+    using namespace dealii;
+    namespace bp = boost::python;
+
     template <int dim, int fe_degree>
     StressOp<dim,fe_degree>::
-    StressOp(const MatrixFree<dim,double> &data_in, const double time_step):
-        data(data_in),
-        delta_t_sqr(make_vectorized_array(time_step * time_step))
+    StressOp(const MatrixFree<dim,double> &data_in, 
+             const double p_time_step,
+             ProblemData<dim> &p_pd,
+             InvViscosity<dim> &p_inv_visc):
+        data(data_in)
     {
+        pd = &p_pd;
         VectorizedArray<double> one = make_vectorized_array(1.);
 
         data.initialize_dof_vector(inv_mass_matrix);
@@ -60,6 +71,11 @@ namespace viscosaur
                 inv_mass_matrix.local_element(k) = 0;
             }
         }
+
+        shear_modulus = bp::extract<double>
+            (pd->parameters["shear_modulus"]);
+        time_step = p_time_step;
+        inv_visc = &p_inv_visc;
     }
 
     template <int dim, int fe_degree>
@@ -67,39 +83,34 @@ namespace viscosaur
     StressOp<dim, fe_degree>::
     local_apply (const MatrixFree<dim> &data,
                  parallel::distributed::Vector<double> &dst,
-                 const std::vector<parallel::distributed::Vector<double>*> &src,
+                 const parallel::distributed::Vector<double> &src,
                  const std::pair<unsigned int,unsigned int> &cell_range) const
     {
-        AssertDimension(src.size(), 2);
-        FEEvaluationGL<dim,fe_degree> current(data), old(data);
+        FEEvaluationGL<dim,fe_degree> current(data);
+        VectorizedArray<double> one = make_vectorized_array(1.);
         for (unsigned int cell = cell_range.first;
              cell < cell_range.second; 
              ++cell)
         {
             current.reinit(cell);
-            old.reinit(cell);
 
-            current.read_dof_values(*src[0]);
-            old.read_dof_values(*src[1]);
+            current.read_dof_values(src);
 
-            current.evaluate(true, true, false);
-            old.evaluate(true, false, false);
+            current.evaluate(true, false, false);
 
-            for (unsigned int q=0; q<current.n_q_points; ++q)
+            for (unsigned int q=0; q < current.n_q_points; ++q)
             {
                 const VectorizedArray<double> current_value = 
                         current.get_value(q);
-                const VectorizedArray<double> old_value = 
-                        old.get_value(q);
-
+                //
                 // Here's where you modify the time stepping!
-                current.submit_value (2.*current_value - old_value -
-                          delta_t_sqr * std::sin(current_value),q);
-                current.submit_gradient (- delta_t_sqr *
-                             current.get_gradient(q), q);
+                const VectorizedArray<double> factor = 
+                    shear_modulus * time_step * 
+                    inv_visc->value(current.quadrature_point(q), 0);
+                current.submit_value((one - factor) * current_value, q);
             }
 
-            current.integrate(true,true);
+            current.integrate(true, false);
             current.distribute_local_to_global(dst);
         }
     }
@@ -108,7 +119,7 @@ namespace viscosaur
     void 
     StressOp<dim, fe_degree>::
     apply(parallel::distributed::Vector<double> &dst,
-          const std::vector<parallel::distributed::Vector<double>*> &src) const
+          const parallel::distributed::Vector<double> &src) const
     {
         dst = 0;
         data.cell_loop(&StressOp<dim,fe_degree>::local_apply,
@@ -116,14 +127,24 @@ namespace viscosaur
         dst.scale(inv_mass_matrix);
     }
 
-    template <2, 2> class StressOp;
-    template <2, 3> class StressOp;
-    template <2, 3> class StressOp;
-    template <2, 4> class StressOp;
-    template <2, 5> class StressOp;
-    template <2, 6> class StressOp;
-    template <2, 7> class StressOp;
-    template <2, 8> class StressOp;
-    template <2, 9> class StressOp;
-    template <2, 10> class StressOp;
+    template class StressOp<2, 1>;
+    template class StressOp<2, 2>;
+    template class StressOp<2, 3>;
+    template class StressOp<2, 4>;
+    template class StressOp<2, 5>;
+    template class StressOp<2, 6>;
+    template class StressOp<2, 7>;
+    template class StressOp<2, 8>;
+    template class StressOp<2, 9>;
+    template class StressOp<2, 10> ;
+    template class StressOp<3, 1>;
+    template class StressOp<3, 2>;
+    template class StressOp<3, 3>;
+    template class StressOp<3, 4>;
+    template class StressOp<3, 5>;
+    template class StressOp<3, 6>;
+    template class StressOp<3, 7>;
+    template class StressOp<3, 8>;
+    template class StressOp<3, 9>;
+    template class StressOp<3, 10> ;
 }

@@ -1,6 +1,7 @@
 #ifndef __viscosaur_poisson_h
 #define __viscosaur_poisson_h
 
+#include <deal.II/base/vectorization.h>
 #include <deal.II/lac/constraint_matrix.h>
 #include <deal.II/lac/generic_linear_algebra.h>
 #include <deal.II/lac/petsc_parallel_sparse_matrix.h>
@@ -47,8 +48,22 @@ namespace viscosaur
         public:
             InvViscosity(ProblemData<dim> &p_pd);
 
-            virtual double value(const dealii::Point<dim> &p,
-                    const unsigned int component) const
+            virtual dealii::VectorizedArray<double>
+                value(const dealii::Point<
+                        dim, dealii::VectorizedArray<double> > &p,
+                      const unsigned int component) const
+            {
+                dealii::VectorizedArray<double> retval; 
+                for(int i = 0; i < p[0].n_array_elements; i++) 
+                {
+                    dealii::Point<dim, double> newp(p[0][i], p[1][i]);
+                    retval.data[i] = value(newp, component);
+                }
+                return retval;
+            }
+
+            virtual double value(const dealii::Point<dim>  &p,
+                         const unsigned int component) const
             {
                 if (p(1) < layer_depth)
                 {
@@ -56,6 +71,7 @@ namespace viscosaur
                 }
                 return inv_viscosity;
             }
+
             double layer_depth;
             double inv_viscosity;
     };

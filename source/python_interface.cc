@@ -12,7 +12,8 @@
 #include "poisson.h"
 #include "problem_data.h"
 #include "control.h"
-#include "rhs.h"
+#include "stress.h"
+#include "stress_op.h"
 
 #include <deal.II/base/point.h>
 #include <deal.II/base/function.h>
@@ -110,5 +111,12 @@ BOOST_PYTHON_MODULE(viscosaur)
         init<dealii::Function<3>&, dealii::Function<3>&, 
                                     vc::ProblemData<3>&>())
         .def("run", &vc::Poisson<3>::run);
+
+    /* Stress updater.
+     */
+    class_<vc::Stress<2>, boost::noncopyable>("Stress2D", 
+        init<dealii::Function<2>&, dealii::Function<2>&, 
+                                    vc::ProblemData<2>&>())
+        .def("step", &vc::Stress<2>::step);
 }
 

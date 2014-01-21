@@ -1,6 +1,5 @@
 #include "poisson.h"
 #include "problem_data.h"
-#include "rhs.h"
 #include "analytic.h"
 
 #include <deal.II/base/quadrature_lib.h>

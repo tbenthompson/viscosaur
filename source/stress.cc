@@ -3,6 +3,7 @@
 #include "stress.h"
 #include "stress_op.h"
 #include "problem_data.h"
+#include "poisson.h"
 
 #include <deal.II/base/logstream.h>
 #include <deal.II/base/utilities.h>
@@ -25,81 +26,80 @@
 #include <iostream>
 #include <iomanip>
 
+#include <boost/python/extract.hpp>
 
 namespace viscosaur
 {
     using namespace dealii;
+    namespace bp = boost::python;
 
     template <int dim>
-    Stress<dim>::Stress(ProblemData<dim> &p_pd):
+    Stress<dim>::Stress(Function<dim> &init_szx, 
+                        Function<dim> &init_szy,
+                        ProblemData<dim> &p_pd)
     {
         pd = &p_pd;
-        init();
-    }
+        time_step = bp::extract<double>(pd->parameters["time_step"]);
 
-    template <int dim>
-    void Stress<dim>::init()
-    {
         constraints = *pd->create_constraints();
+        constraints.close();
 
         typename MatrixFree<dim>::AdditionalData additional_data;
+        additional_data.mapping_update_flags = (update_gradients |
+                                          update_JxW_values |
+                                          update_quadrature_points);
         additional_data.mpi_communicator = MPI_COMM_WORLD;
         additional_data.tasks_parallel_scheme =
             MatrixFree<dim>::AdditionalData::partition_partition;
 
-        matrix_free_data.reinit(pd->dof_handler, constraints,
-                                pd->quadrature, additional_data);
-        matrix_free_data.initialize_dof_vector(solution);
-        old_solution.reinit(solution);
-        old_old_solution.reinit(solution);
-    }
-    // // Applying constraints to the solution that was computed without paying
-    // attention to constraints
-        // constraints.distribute (solution);
-    //I think this allows some of the fancy operators like "itegrate_difference"
-    // to operate on a distributed vector
-        // solution.update_ghost_values();
+        //Needs to be one-dimensional
+        QGaussLobatto<1> quadrature (fe_degree+1);
+        matrix_free_szx.reinit(pd->dof_handler, constraints,
+                                quadrature, additional_data);
+        matrix_free_szy.reinit(pd->dof_handler, constraints,
+                                quadrature, additional_data);
+        matrix_free_szx.initialize_dof_vector(szx);
+        matrix_free_szy.initialize_dof_vector(szy);
+        old_szx.reinit(szx);
+        old_szy.reinit(szy);
 
-    //Calculate CFL number! Useful for the future
-        // const double local_min_cell_diameter =
-        //     triangulation.last()->diameter()/std::sqrt(dim);
-        // const double global_min_cell_diameter
-        //     = -Utilities::MPI::max(-local_min_cell_diameter, MPI_COMM_WORLD);
-        // time_step = cfl_number * global_min_cell_diameter;
-        // time_step = (final_time-time)/(int((final_time-time)/time_step));
+        VectorTools::interpolate (pd->dof_handler, init_szx, szx);
+        VectorTools::interpolate (pd->dof_handler, init_szy, szy);
+
+        InvViscosity<dim>* inv_visc = new InvViscosity<dim>(*pd);
+        //Make a vector of stress ops, so that degree can be flexible.
+        //First check if the initialization takes a substantial amount of time.
+        op_szx = new StressOp<dim, fe_degree>(matrix_free_szx, time_step, *pd, *inv_visc);
+        op_szy = new StressOp<dim, fe_degree>(matrix_free_szy, time_step, *pd, *inv_visc);
+    }
+
+    template <int dim>
+    Stress<dim>::~Stress()
+    {
+        delete op_szx;
+        delete op_szy;
+    }
+
     template <int dim>
     void
-    Stress<dim>::run ()
+    Stress<dim>::step()
     {
-        init();
-        pcout << "   Time step size: " << time_step << ", finest cell: "
-              << global_min_cell_diameter << std::endl << std::endl;
+        time += time_step;
+        timestep_number++;
 
-        VectorTools::interpolate (pd->dof_handler,
-            ExactSolution<dim> (1, time),
-            solution);
-        VectorTools::interpolate (pd->dof_handler,
-            ExactSolution<dim> (1, time-time_step),
-            old_solution);
-        output_results (0);
+        //Flip the solns to retain the old soln.
+        old_szx.swap(szx);
+        old_szy.swap(szy);
 
-        std::vector<parallel::distributed::Vector<double>*> previous_solutions;
-        previous_solutions.push_back(&old_solution);
-        previous_solutions.push_back(&old_old_solution);
+        //One time step of the relevant operation
+        op_szx->apply(szx, old_szx);
+        op_szy->apply(szy, old_szy);
 
-        StressOp<dim,fe_degree> operation (matrix_free_data,
-        time_step);
-        unsigned int timestep_number = 1;
-
-        Timer timer;
-        double wtime = 0;
-        double output_time = 0;
-        for (time += time_step; time<=final_time; time+=time_step, 
-                                                  ++timestep_number)
-        {
-            old_old_solution.swap (old_solution);
-            old_solution.swap (solution);
-            operation.apply (solution, previous_solutions);
-        }
+        //Apply constraints to set constrained DoFs to their correct value
+        constraints.distribute(szx);
+        constraints.distribute(szy);
     }
+
+    template class Stress<2>;
+    template class Stress<3>;
 }
