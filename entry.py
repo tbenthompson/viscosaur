@@ -34,28 +34,21 @@ initSzx = vc.SimpleInitSzx2D(tla)
 initSzy = vc.SimpleInitSzy2D(tla)
 soln = vc.Solution2D(pd)
 
-def one_step_vel():
+def run():
     vel = vc.SimpleVelocity2D(tla)
     vel.set_t(params['time_step'])
 
     # Setup a 2D poisson solver.
-    strs_update = vc.Stress2D(soln, pd)
-    soln.apply_init_cond(initSzx, initSzy)
-    v_solver = vc.Velocity2D(soln, vel, pd)
+    for i in range(0, 11):
+        strs_update = vc.Stress2D(soln, pd)
+        soln.apply_init_cond(initSzx, initSzy)
+        v_solver = vc.Velocity2D(soln, vel, pd)
 
-    # Run a poisson solve
-    abc = v_solver.step(soln)
+        strs_update.step(soln)
+        v_solver.step(soln)
+        pd.refine_grid(soln)
+        soln.output(i, vel)
 
-def one_step_strs():
-    # We must define the slip fnc outside the TLA constructor, otherwise
-    # it appears to get deleted (maybe by python?)
-    # Maybe separate out the stress op on the python side, so that I can have
-    # different types, (forward Euler, backward Euler, BDF2, BDF4, etc)
-    strs_update = vc.Stress2D(soln, pd)
-    soln.apply_init_cond(initSzx, initSzy)
-    strs_update.step(soln)
-    print "Done!!!!"
-
-one_step_vel()
+run()
 # one_step_strs()
 print "From python: run complete"
