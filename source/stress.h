@@ -10,6 +10,7 @@
 namespace viscosaur
 {
     template <int dim> class ProblemData; 
+    template <int dim> class Solution; 
     template <int dim, int fe_degree> class StressOp;
 
     const unsigned int fe_degree = 2;
@@ -18,11 +19,10 @@ namespace viscosaur
     class Stress
     {
         public:
-            Stress(dealii::Function<dim> &init_szx, 
-                   dealii::Function<dim> &init_szy, 
+            Stress(Solution<dim> &soln,
                    ProblemData<dim> &p_pd);
             ~Stress();
-            void step();
+            void step(Solution<dim> &soln);
 
         private:
             void init();
@@ -30,10 +30,6 @@ namespace viscosaur
             dealii::ConstraintMatrix     constraints;
             dealii::MatrixFree<dim,double> matrix_free_szx;
             dealii::MatrixFree<dim,double> matrix_free_szy;
-            dealii::parallel::distributed::Vector<double> szx;
-            dealii::parallel::distributed::Vector<double> szy;
-            dealii::parallel::distributed::Vector<double> old_szx;
-            dealii::parallel::distributed::Vector<double> old_szy;
             ProblemData<dim>* pd;
             StressOp<dim, fe_degree>* op_szx;
             StressOp<dim, fe_degree>* op_szy;

@@ -148,10 +148,10 @@ namespace viscosaur
     };
 
     template <int dim>
-    class Velocity: public dealii::Function<dim>
+    class ExactVelocity: public dealii::Function<dim>
     {
         public:
-            Velocity(TwoLayerAnalytic &p_tla): 
+            ExactVelocity(TwoLayerAnalytic &p_tla): 
                 dealii::Function<dim>(1)
             {
                 tla = &p_tla;

@@ -26,21 +26,21 @@
 
 
 
-    "status": "closed", 
+    "status": "open", 
 
 
 
 
 
 
-    "summary": "Set up output handler interface.", 
+    "summary": "Implement a mesh-hash type system to make sure all objects are operating on the same mesh.", 
 
 
 
 
 
 
-    "time": "Fri, 10 Jan 2014 03:19:44 +0000"
+    "time": "Wed, 22 Jan 2014 03:54:46 +0000"
 
 
 

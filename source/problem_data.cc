@@ -1,4 +1,5 @@
 #include "problem_data.h"
+#include "solution.h"
 
 #include <deal.II/base/quadrature_lib.h>
 #include <deal.II/base/timer.h>
@@ -144,7 +145,7 @@ namespace viscosaur
     template <int dim>
     void 
     ProblemData<dim>::
-    refine_grid(LA::MPI::Vector &local_solution)
+    refine_grid(Solution<dim> &soln)
     {
         TimerOutput::Scope t(computing_timer, "refine");
 
@@ -156,12 +157,12 @@ namespace viscosaur
         KellyErrorEstimator<dim>::estimate (dof_handler,
                 QGaussLobatto<dim - 1>(fe_d + 1),
                 typename FunctionMap<dim>::type(),
-                local_solution,
+                soln.cur_vel,
                 estimated_error_per_cell);
 
         //Print the local L2 error estimate.
         double l2_error = estimated_error_per_cell.l2_norm();
-        double l2_soln = local_solution.l2_norm();
+        double l2_soln = soln.cur_vel.l2_norm();
         double percent_error = l2_error / l2_soln;
         std::cout << "Processor: " + 
             Utilities::int_to_string(

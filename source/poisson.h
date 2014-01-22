@@ -23,8 +23,8 @@ namespace viscosaur
     /* Forward declare some of the classes needed.
      */
     template <int dim> class ProblemData;
-    template <int dim> class PoissonRHS;
     template <int dim> class Velocity;
+    template <int dim> class Solution;
 
 
     /* Using higher order polynomials results in a problem with very slow 
@@ -33,7 +33,7 @@ namespace viscosaur
      */
 
     /*
-     * The Poisson Solver. Most of this code is extracted from tutorial 40
+     * The Velocity Solver. Most of this code is extracted from tutorial 40
      * on the deal.ii website. Currently located at
      * http://www.dealii.org/8.1.0/doxygen/deal.II/step_40.html 
      *
@@ -77,29 +77,25 @@ namespace viscosaur
     };
 
     template <int dim>
-    class Poisson
+    class Velocity
     {
         public:
-            Poisson(dealii::Function<dim> &p_init_cond_Szx,
-                    dealii::Function<dim> &p_init_cond_Szy,
+            Velocity(Solution<dim> &soln,
+                    dealii::Function<dim> &bc,
                     ProblemData<dim> &p_pd);
 
-            LA::MPI::Vector run(dealii::Function<dim> &bc);
-
+            void step(Solution<dim> &soln);
         private:
-            void setup_system(dealii::Function<dim> &bc);
-
+            void setup_system(dealii::Function<dim> &bc,
+                              Solution<dim> &soln);
 
             /* Build the relevant matrices. */
-            void assemble_system();
+            void assemble_matrix(Solution<dim> &soln);
 
-            void solve ();
+            /* Build the rhs */
+            void assemble_rhs(Solution<dim> &soln);
 
-            std::string output_filename(const unsigned int cycle,
-                                        const unsigned int subdomain) const;
-            void output_results (const unsigned int cycle,
-                                 dealii::Function<dim> &vel) const;
-            void init_mesh ();
+            void solve (Solution<dim> &soln);
             
             ProblemData<dim>* pd;
             dealii::Function<dim>* init_cond_Szx;

@@ -24,6 +24,7 @@ namespace dealii
 
 namespace viscosaur
 {
+    template <int dim> class Solution;
     template <int dim>
     class ProblemData
     {
@@ -32,7 +33,7 @@ namespace viscosaur
             ~ProblemData();
             void init_mesh();
             void init_dofs();
-            void refine_grid(LA::MPI::Vector &local_solution);
+            void refine_grid(Solution<dim> &soln);
             dealii::CompressedSimpleSparsityPattern* create_sparsity_pattern(
                     dealii::ConstraintMatrix &constraints);
             dealii::ConstraintMatrix* create_constraints();

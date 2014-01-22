@@ -23,43 +23,39 @@ params['abc'] = 1000
 instance = vc.Vc(sys.argv)
 
 pd = vc.ProblemData2D(params)
+# We must define the slip fnc outside the TLA constructor, otherwise
+# it appears to get deleted (maybe by python?)
+sf = vc.ConstantSlipFnc(params['fault_depth'])
+tla = vc.TwoLayerAnalytic(params['fault_slip'],
+                          params['fault_depth'],
+                          params['shear_modulus'],
+                          params['viscosity'], sf)
+initSzx = vc.SimpleInitSzx2D(tla)
+initSzy = vc.SimpleInitSzy2D(tla)
+soln = vc.Solution2D(pd)
 
 def one_step_vel():
-    # We must define the slip fnc outside the TLA constructor, otherwise
-    # it appears to get deleted (maybe by python?)
-    sf = vc.ConstantSlipFnc(params['fault_depth'])
-    tla = vc.TwoLayerAnalytic(params['fault_slip'],
-                              params['fault_depth'],
-                              params['shear_modulus'],
-                              params['viscosity'], sf)
-    initSzx = vc.SimpleInitSzx2D(tla)
-    initSzy = vc.SimpleInitSzy2D(tla)
     vel = vc.SimpleVelocity2D(tla)
     vel.set_t(params['time_step'])
 
     # Setup a 2D poisson solver.
-    poisson = vc.Poisson2D(initSzx, initSzy, pd)
+    strs_update = vc.Stress2D(soln, pd)
+    soln.apply_init_cond(initSzx, initSzy)
+    v_solver = vc.Velocity2D(soln, vel, pd)
 
     # Run a poisson solve
-    abc = poisson.run(vel)
+    abc = v_solver.step(soln)
 
 def one_step_strs():
     # We must define the slip fnc outside the TLA constructor, otherwise
     # it appears to get deleted (maybe by python?)
-    sf = vc.ConstantSlipFnc(params['fault_depth'])
-    tla = vc.TwoLayerAnalytic(params['fault_slip'],
-                              params['fault_depth'],
-                              params['shear_modulus'],
-                              params['viscosity'], sf)
-    initSzx = vc.SimpleInitSzx2D(tla)
-    initSzy = vc.SimpleInitSzy2D(tla)
     # Maybe separate out the stress op on the python side, so that I can have
     # different types, (forward Euler, backward Euler, BDF2, BDF4, etc)
-    strs_update = vc.Stress2D(initSzx, initSzy, pd)
-    for i in range(100):
-        strs_update.step()
+    strs_update = vc.Stress2D(soln, pd)
+    soln.apply_init_cond(initSzx, initSzy)
+    strs_update.step(soln)
     print "Done!!!!"
 
-# one_step_vel()
-one_step_strs()
+one_step_vel()
+# one_step_strs()
 print "From python: run complete"

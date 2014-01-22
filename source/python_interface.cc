@@ -14,6 +14,7 @@
 #include "control.h"
 #include "stress.h"
 #include "stress_op.h"
+#include "solution.h"
 
 #include <deal.II/base/point.h>
 #include <deal.II/base/function.h>
@@ -84,39 +85,47 @@ BOOST_PYTHON_MODULE(viscosaur)
     class_<vc::SimpleInitSzy<2>, bases<dealii::Function<2> > >
         ("SimpleInitSzy2D", init<vc::TwoLayerAnalytic&>())
         .def("value", &vc::InitSzy<2>::value);
-    class_<vc::Velocity<2>, bases<dealii::Function<2> > >
-        ("Velocity2D", init<vc::TwoLayerAnalytic&>())
-        .def("value", &vc::Velocity<2>::value)
-        .def("set_t", &vc::Velocity<2>::set_t);
+    class_<vc::ExactVelocity<2>, bases<dealii::Function<2> > >
+        ("ExactVelocity2D", init<vc::TwoLayerAnalytic&>())
+        .def("value", &vc::ExactVelocity<2>::value)
+        .def("set_t", &vc::ExactVelocity<2>::set_t);
     class_<vc::SimpleVelocity<2>, bases<dealii::Function<2> > >
         ("SimpleVelocity2D", init<vc::TwoLayerAnalytic&>())
         .def("value", &vc::SimpleVelocity<2>::value)
         .def("set_t", &vc::SimpleVelocity<2>::set_t);
 
-    /* Expose the Poisson solver. I separate the 2D and 3D because exposing
+    /* Solution object
+     */
+    class_<vc::Solution<2>, boost::noncopyable>("Solution2D", 
+        init<vc::ProblemData<2>&>())
+        .def("apply_init_cond", &vc::Solution<2>::apply_init_cond)
+        .def("output", &vc::Solution<2>::output);
+
+    /* Expose the Velocity solver. I separate the 2D and 3D because exposing
      * the templating to python is difficult.
      * boost::noncopyable is required, because the copy constructor of some
-     * of the private members of Poisson are private
+     * of the private members of Velocity are private
      */ 
 
     class_<vc::ProblemData<2>, boost::noncopyable>("ProblemData2D",
-                                                    init<dict&>());
+                                                    init<dict&>()).
+        def("refine_grid", &vc::ProblemData<2>::refine_grid);
     class_<vc::ProblemData<3>, boost::noncopyable>("ProblemData3D",
                                                     init<dict&>());
-    class_<vc::Poisson<2>, boost::noncopyable>("Poisson2D", 
-        init<dealii::Function<2>&, dealii::Function<2>&, 
-                                    vc::ProblemData<2>&>())
-        .def("run", &vc::Poisson<2>::run);
-    class_<vc::Poisson<3>, boost::noncopyable>("Poisson3D", 
-        init<dealii::Function<3>&, dealii::Function<3>&, 
-                                    vc::ProblemData<3>&>())
-        .def("run", &vc::Poisson<3>::run);
+
+    class_<vc::Velocity<2>, boost::noncopyable>("Velocity2D", 
+        init<vc::Solution<2>&, dealii::Function<2>&,
+             vc::ProblemData<2>&>())
+        .def("step", &vc::Velocity<2>::step);
+    class_<vc::Velocity<3>, boost::noncopyable>("Velocity3D", 
+        init<vc::Solution<3>&, dealii::Function<3>&,
+             vc::ProblemData<3>&>())
+        .def("step", &vc::Velocity<3>::step);
 
     /* Stress updater.
      */
     class_<vc::Stress<2>, boost::noncopyable>("Stress2D", 
-        init<dealii::Function<2>&, dealii::Function<2>&, 
-                                    vc::ProblemData<2>&>())
+        init<vc::Solution<2>&, vc::ProblemData<2>&>())
         .def("step", &vc::Stress<2>::step);
 }
 

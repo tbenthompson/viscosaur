@@ -26,21 +26,21 @@
 
 
 
-    "status": "closed", 
+    "status": "open", 
 
 
 
 
 
 
-    "summary": "Set up output handler interface.", 
+    "summary": "Implement helmholtz step", 
 
 
 
 
 
 
-    "time": "Fri, 10 Jan 2014 03:19:44 +0000"
+    "time": "Wed, 22 Jan 2014 04:22:09 +0000"
 
 
 
