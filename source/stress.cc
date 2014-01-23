@@ -38,6 +38,7 @@ namespace viscosaur
                         ProblemData<dim> &p_pd)
     {
         pd = &p_pd;
+        TimerOutput::Scope t(pd->computing_timer, "setup_stress");
         time_step = bp::extract<double>(pd->parameters["time_step"]);
 
         constraints = *pd->create_constraints();
@@ -84,6 +85,7 @@ namespace viscosaur
     void
     Stress<dim>::step(Solution<dim> &soln)
     {
+        TimerOutput::Scope t(pd->computing_timer, "stress_step");
         time += time_step;
         timestep_number++;
 
@@ -98,6 +100,8 @@ namespace viscosaur
         //Apply constraints to set constrained DoFs to their correct value
         constraints.distribute(soln.tent_szx);
         constraints.distribute(soln.tent_szy);
+        soln.tent_szx.update_ghost_values();
+        soln.tent_szy.update_ghost_values();
     }
 
     template class Stress<2>;

@@ -80,14 +80,6 @@ namespace viscosaur
         hanging_node_constraints = *pd->create_constraints();
         hanging_node_constraints.close();
 
-        constraints = *pd->create_constraints();
-        VectorTools::interpolate_boundary_values(pd->dof_handler,
-                0, bc, constraints);
-        VectorTools::interpolate_boundary_values(pd->dof_handler,
-                1, bc, constraints);
-        VectorTools::interpolate_boundary_values(pd->dof_handler,
-                3, bc, constraints);
-        constraints.close();
 
         CompressedSimpleSparsityPattern* csp = 
             pd->create_sparsity_pattern(constraints);
@@ -103,8 +95,22 @@ namespace viscosaur
                              pd->mpi_comm);
         //GET RID OF MANUAL POINTER HANDLING!
         delete csp;
+        soln.cur_vel.reinit(pd->locally_owned_dofs,
+                pd->locally_relevant_dofs, pd->mpi_comm);
     }
 
+    template <int dim>
+    void Velocity<dim>::update_bc(Function<dim> &bc, unsigned int piece)
+    {
+        constraints = *pd->create_constraints();
+        VectorTools::interpolate_boundary_values(pd->dof_handler,
+                0, bc, constraints);
+        VectorTools::interpolate_boundary_values(pd->dof_handler,
+                1, bc, constraints);
+        VectorTools::interpolate_boundary_values(pd->dof_handler,
+                3, bc, constraints);
+        constraints.close();
+    }
 
 
     template <int dim>
@@ -229,22 +235,18 @@ namespace viscosaur
                 JxW = fe_values.JxW(q);
                 for (unsigned int i=0; i<dofs_per_cell; ++i)
                 {
-                    if (constraints.
-                        is_inhomogeneously_constrained(local_dof_indices[i]))
-                    {
-                        grad[i] = fe_values.shape_grad(i, q);
-                    }
+                    grad[i] = fe_values.shape_grad(i, q);
                     val[i] = fe_values.shape_value(i, q);
                 }
                 // This pair of loops is symmetric. I cut the assembly
                 // cost in half by taking advantage of this.
-                for (unsigned int i=0; i<dofs_per_cell; ++i)
+                for (unsigned int i=0; i < dofs_per_cell; ++i)
                 {
 
-                    if (constraints.
-                        is_inhomogeneously_constrained(local_dof_indices[i]))
-                    {
-                        for (unsigned int j = 0; j <= i; ++j)
+                    // if (constraints.
+                    //     is_inhomogeneously_constrained(local_dof_indices[i]))
+                    // {
+                        for (unsigned int j = 0; j < dofs_per_cell; ++j)
                         {
                             // The main matrix entries are the integral of product of 
                             // the gradient of the shape functions. We also must accnt
@@ -252,15 +254,12 @@ namespace viscosaur
                             // element and the size of the element
                             cell_matrix(i,j) += grad[i] * grad[j] * JxW;
                         } 
-                    }
+                    // }
                     cell_rhs(i) += factor * JxW * 
                         (Szxgrad[q][0] + Szygrad[q][1]) * val[i];
                 } 
 
             }
-            for (unsigned int i=0; i<dofs_per_cell; ++i)
-                for (unsigned int j=i+1; j<dofs_per_cell; ++j)
-                  cell_matrix(i, j) = cell_matrix(j, i);
             constraints.distribute_local_to_global(cell_rhs,
                                                       local_dof_indices,
                                                       system_rhs,

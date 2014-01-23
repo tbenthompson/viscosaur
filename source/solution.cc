@@ -4,6 +4,7 @@
 #include <deal.II/base/function.h>
 #include <deal.II/numerics/vector_tools.h>
 #include <deal.II/numerics/data_out.h>
+#include <deal.II/lac/parallel_vector.h>
 
 namespace viscosaur
 {
@@ -14,8 +15,6 @@ namespace viscosaur
     {
         pd = &p_pd;
 
-        // locally_relevant_solution.reinit(pd->locally_owned_dofs,
-        //         pd->locally_relevant_dofs, pd->mpi_comm);
     }
 
     template <int dim>
@@ -24,6 +23,7 @@ namespace viscosaur
     apply_init_cond(Function<dim> &init_szx,
                     Function<dim> &init_szy)
     {
+        TimerOutput::Scope t(pd->computing_timer, "init_cond");
         VectorTools::interpolate(pd->dof_handler, init_szx, cur_szx);
         VectorTools::interpolate(pd->dof_handler, init_szy, cur_szy);
     }
@@ -44,13 +44,15 @@ namespace viscosaur
     void Solution<dim>::output(const unsigned int cycle,
                                Function<dim> &exact) const
     {
-        LA::MPI::Vector exact_vel;
-        exact_vel.reinit(pd->locally_owned_dofs, pd->mpi_comm);
+        TimerOutput::Scope t(pd->computing_timer, "output");
+        parallel::distributed::Vector<double> exact_vel;
+        exact_vel.reinit(pd->locally_owned_dofs, pd->locally_relevant_dofs,
+                pd->mpi_comm);
         VectorTools::interpolate(pd->dof_handler, exact, exact_vel);
         exact_vel.compress(VectorOperation::add);
+        exact_vel.update_ghost_values();
 
-        Vector<double> local_errors(
-                pd->triangulation.n_active_cells());
+        Vector<double> local_errors(pd->triangulation.n_active_cells());
         VectorTools::integrate_difference(
                 pd->dof_handler,
                 cur_vel,
@@ -69,8 +71,10 @@ namespace viscosaur
         DataOut<dim> data_out;
         data_out.attach_dof_handler(pd->dof_handler);
         data_out.add_data_vector(cur_vel, "vel");
-        data_out.add_data_vector(cur_szx, "szx");
-        data_out.add_data_vector(cur_szy, "szy");
+        data_out.add_data_vector(tent_szx, "tentative_szx");
+        data_out.add_data_vector(tent_szy, "tentative_szy");
+        // data_out.add_data_vector(cur_szx, "szx");
+        // data_out.add_data_vector(cur_szy, "szy");
         data_out.add_data_vector(exact_vel, "exact_vel");
         data_out.add_data_vector(local_errors, "error");
 

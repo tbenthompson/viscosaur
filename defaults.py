@@ -7,16 +7,16 @@ def default_params():
 
     # Meshing descriptors.
     # minimum corner(x_min, y_min)
-    defaults['min_corner'] = vc.Point2D(100.0, 0.0)
+    defaults['min_corner'] = vc.Point2D(50.0, 0.0)
     # maximum corner(x_max, y_max)
-    defaults['max_corner'] = vc.Point2D(1.0e5, 1.0e5)
+    defaults['max_corner'] = vc.Point2D(5.0e4, 6.0e4)
 
     # Polynomial degree of the elements.
     defaults['fe_degree'] = 2;
 
     # How many times to isotropically refine the grid initially.
-    defaults['initial_isotropic_refines'] = 2
-    defaults['initial_adaptive_refines'] = 16
+    defaults['initial_isotropic_refines'] = 4
+    defaults['initial_adaptive_refines'] = 9
 
     # Maximum and minimum refinement levels
     defaults['max_grid_level'] = 20
@@ -28,10 +28,13 @@ def default_params():
 
     # time stepping
     defaults['t_max'] = 100.0 * secs_in_a_year
-    defaults['time_step'] = defaults['t_max'] / 10.0
+    defaults['time_step'] = defaults['t_max'] / 100.0
 
-    # Where to save data?
+    # TODO: Implement this!
     defaults['clear_data_dir'] = True
+    # TODO: Implement this!
+    defaults['compress_data_dir_on_finish'] = True
+    # Where to save data?
     defaults['data_dir'] = 'data'
 
     # Initial stress setup -- fed into an elastic half-space solution

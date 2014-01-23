@@ -39,15 +39,15 @@ def run():
     vel.set_t(params['time_step'])
 
     # Setup a 2D poisson solver.
-    for i in range(0, 11):
+    for i in range(params['initial_adaptive_refines']):
         strs_update = vc.Stress2D(soln, pd)
         soln.apply_init_cond(initSzx, initSzy)
         v_solver = vc.Velocity2D(soln, vel, pd)
 
         strs_update.step(soln)
         v_solver.step(soln)
-        pd.refine_grid(soln)
         soln.output(i, vel)
+        pd.refine_grid(soln)
 
 run()
 # one_step_strs()
