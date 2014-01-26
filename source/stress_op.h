@@ -18,12 +18,19 @@ namespace viscosaur
 {
     template <int dim> class ProblemData;
     template <int dim> class InvViscosity;
+    template <int dim> class Solution;
 
     template <int dim, int fe_degree>
     class StressOp
     {
         public:
+            StressOp() {}
             StressOp(const dealii::MatrixFree<dim,double> &data_in, 
+                     const double p_time_step,
+                     ProblemData<dim> &p_pd,
+                     InvViscosity<dim> &p_inv_visc)
+            {init(data_in, p_time_step, p_pd, p_inv_visc);}
+            void init(const dealii::MatrixFree<dim,double> &data_in, 
                      const double p_time_step,
                      ProblemData<dim> &p_pd,
                      InvViscosity<dim> &p_inv_visc); 
@@ -35,21 +42,59 @@ namespace viscosaur
              * be easily inverted.
              */
             void apply(dealii::parallel::distributed::Vector<double> &dst, 
-                const dealii::parallel::distributed::Vector<double> &src) const;
+                const dealii::parallel::distributed::Vector<double> &src,
+                Solution<dim> &soln,
+                const unsigned int comp);
 
-        private:
-            const dealii::MatrixFree<dim,double> &data;
+            const dealii::MatrixFree<dim,double>* data;
             dealii::parallel::distributed::Vector<double> inv_mass_matrix;
             ProblemData<dim>* pd;
+            Solution<dim>* soln;
+            unsigned int component;
 
             double time_step;
             double shear_modulus;
             InvViscosity<dim>* inv_visc;
 
             /* The partner in crime of the "apply" function above. This computes
-             * one time step for one cell. 
+             * one time step for one cell. What a messy declaration!
              */
-            void local_apply(const dealii::MatrixFree<dim,double> &data,
+            virtual void local_apply(const dealii::MatrixFree<dim,double> &data,
+                             dealii::parallel::distributed::Vector<double> &dst,
+                             const dealii::parallel::distributed::Vector
+                                    <double> &src,
+                             const std::pair<unsigned int,
+                                             unsigned int> &cell_range) 
+                                                            const = 0;
+    };
+
+    template <int dim, int fe_degree>
+    class TentativeOp: public StressOp<dim, fe_degree>
+    {
+        public:
+            TentativeOp(const dealii::MatrixFree<dim,double> &data_in, 
+                     const double p_time_step,
+                     ProblemData<dim> &p_pd,
+                     InvViscosity<dim> &p_inv_visc)
+            {this->init(data_in, p_time_step, p_pd, p_inv_visc);}
+            virtual void local_apply(const dealii::MatrixFree<dim,double> &data,
+                             dealii::parallel::distributed::Vector<double> &dst,
+                             const dealii::parallel::distributed::Vector
+                                    <double> &src,
+                             const std::pair<unsigned int,
+                                             unsigned int> &cell_range) const;
+    };
+
+    template <int dim, int fe_degree>
+    class CorrectionOp: public StressOp<dim, fe_degree>
+    {
+        public:
+            CorrectionOp(const dealii::MatrixFree<dim,double> &data_in, 
+                     const double p_time_step,
+                     ProblemData<dim> &p_pd,
+                     InvViscosity<dim> &p_inv_visc)
+            {this->init(data_in, p_time_step, p_pd, p_inv_visc);}
+            virtual void local_apply(const dealii::MatrixFree<dim,double> &data,
                              dealii::parallel::distributed::Vector<double> &dst,
                              const dealii::parallel::distributed::Vector
                                     <double> &src,

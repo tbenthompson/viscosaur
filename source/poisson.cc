@@ -57,7 +57,7 @@ namespace viscosaur
         pd = &p_pd;
         pd->pcout << "Setting up the Velocity solver." << std::endl;
         setup_system(bc, soln);
-        assemble_matrix(soln);
+        // assemble_matrix(soln);
         pd->pcout << "   Number of active cells:       "
             << pd->triangulation.n_global_active_cells()
             << std::endl
@@ -80,7 +80,7 @@ namespace viscosaur
         hanging_node_constraints = *pd->create_constraints();
         hanging_node_constraints.close();
 
-
+        update_bc(bc);
         CompressedSimpleSparsityPattern* csp = 
             pd->create_sparsity_pattern(constraints);
         // Initialize the matrix, rhs and solution vectors.
@@ -100,7 +100,7 @@ namespace viscosaur
     }
 
     template <int dim>
-    void Velocity<dim>::update_bc(Function<dim> &bc, unsigned int piece)
+    void Velocity<dim>::update_bc(Function<dim> &bc)
     {
         constraints = *pd->create_constraints();
         VectorTools::interpolate_boundary_values(pd->dof_handler,
@@ -127,79 +127,13 @@ namespace viscosaur
         const unsigned int   n_q_points    = pd->quadrature.size();
 
         FullMatrix<double> cell_matrix(dofs_per_cell, dofs_per_cell);
-        std::vector<types::global_dof_index> local_dof_indices(dofs_per_cell);
-
-        typename DoFHandler<dim>::active_cell_iterator
-            cell = pd->dof_handler.begin_active(),
-            endc = pd->dof_handler.end();
-
-
-        std::vector<Tensor<1, dim> > grad(dofs_per_cell);
-        double JxW;
-        for (; cell!=endc; ++cell)
-        {
-            if (!cell->is_locally_owned())
-            {
-                continue;
-            }
-            // TimerOutput::Scope t(pd->computing_timer, "assem.cell_one");
-            // TimerOutput::Scope t2(pd->computing_timer, "cell_construction");
-            cell_matrix = 0;
-
-            fe_values.reinit(cell);
-            cell->get_dof_indices(local_dof_indices);
-            for (unsigned int q = 0; q < n_q_points; ++q)
-            {
-                JxW = fe_values.JxW(q);
-                for (unsigned int i=0; i<dofs_per_cell; ++i)
-                {
-                    grad[i] = fe_values.shape_grad(i, q);
-                }
-                // This pair of loops is symmetric. I cut the assembly
-                // cost in half by taking advantage of this.
-                for (unsigned int i=0; i<dofs_per_cell; ++i)
-                {
-                    for (unsigned int j = 0; j <= i; ++j)
-                    {
-                        // The main matrix entries are the integral of product of 
-                        // the gradient of the shape functions. We also must accnt
-                        // for the mapping between the element and the unit 
-                        // element and the size of the element
-                        cell_matrix(i,j) += grad[i] * grad[j] * JxW;
-                    } 
-                } 
-
-            }
-            for (unsigned int i=0; i<dofs_per_cell; ++i)
-                for (unsigned int j=i+1; j<dofs_per_cell; ++j)
-                    cell_matrix(i, j) = cell_matrix(j, i);
-            constraints.distribute_local_to_global(cell_matrix,
-                                                   local_dof_indices,
-                                                   system_matrix);
-        }
-        system_matrix.compress(VectorOperation::add);
-    }
-
-    template <int dim>
-    void 
-    Velocity<dim>::
-    assemble_rhs(Solution<dim> &soln) 
-    { 
-        TimerOutput::Scope t(pd->computing_timer, "assem_rhs");
-        FEValues<dim> fe_values(pd->fe, pd->quadrature, 
-                                update_values | update_gradients | 
-                                update_quadrature_points | update_JxW_values); 
-
-        const unsigned int   dofs_per_cell = pd->fe.dofs_per_cell;
-        const unsigned int   n_q_points    = pd->quadrature.size();
-
-        FullMatrix<double> cell_matrix(dofs_per_cell, dofs_per_cell);
         Vector<double> cell_rhs(dofs_per_cell);
         std::vector<types::global_dof_index> local_dof_indices(dofs_per_cell);
 
         typename DoFHandler<dim>::active_cell_iterator
             cell = pd->dof_handler.begin_active(),
             endc = pd->dof_handler.end();
+
 
         double value;
         const double shear_modulus = 
@@ -228,8 +162,6 @@ namespace viscosaur
             cell->get_dof_indices(local_dof_indices);
             fe_values.get_function_gradients(soln.tent_szx, Szxgrad);
             fe_values.get_function_gradients(soln.tent_szy, Szygrad);
-
-
             for (unsigned int q = 0; q < n_q_points; ++q)
             {
                 JxW = fe_values.JxW(q);
@@ -240,32 +172,40 @@ namespace viscosaur
                 }
                 // This pair of loops is symmetric. I cut the assembly
                 // cost in half by taking advantage of this.
-                for (unsigned int i=0; i < dofs_per_cell; ++i)
+                for (unsigned int i=0; i<dofs_per_cell; ++i)
                 {
-
-                    // if (constraints.
-                    //     is_inhomogeneously_constrained(local_dof_indices[i]))
-                    // {
-                        for (unsigned int j = 0; j < dofs_per_cell; ++j)
-                        {
-                            // The main matrix entries are the integral of product of 
-                            // the gradient of the shape functions. We also must accnt
-                            // for the mapping between the element and the unit 
-                            // element and the size of the element
-                            cell_matrix(i,j) += grad[i] * grad[j] * JxW;
-                        } 
-                    // }
+                    for (unsigned int j = 0; j <= i; ++j)
+                    {
+                        // The main matrix entries are the integral of product of 
+                        // the gradient of the shape functions. We also must accnt
+                        // for the mapping between the element and the unit 
+                        // element and the size of the element
+                        cell_matrix(i,j) += grad[i] * grad[j] * JxW;
+                    } 
                     cell_rhs(i) += factor * JxW * 
                         (Szxgrad[q][0] + Szygrad[q][1]) * val[i];
                 } 
 
             }
-            constraints.distribute_local_to_global(cell_rhs,
-                                                      local_dof_indices,
-                                                      system_rhs,
-                                                      cell_matrix);
+            for (unsigned int i=0; i<dofs_per_cell; ++i)
+                for (unsigned int j=i+1; j<dofs_per_cell; ++j)
+                    cell_matrix(i, j) = cell_matrix(j, i);
+            constraints.distribute_local_to_global(cell_matrix, cell_rhs,
+                                                   local_dof_indices,
+                                                   system_matrix, system_rhs);
         }
+        system_matrix.compress(VectorOperation::add);
         system_rhs.compress(VectorOperation::add);
+    }
+
+    template <int dim>
+    void 
+    Velocity<dim>::
+    assemble_rhs(Solution<dim> &soln) 
+    { 
+        // I should separate matrix and rhs construction so they are 
+        // independent. But, wait for the moment, not necessary!
+        assemble_matrix(soln);
     }
 
 
@@ -275,7 +215,7 @@ namespace viscosaur
     {
         TimerOutput::Scope t(pd->computing_timer, "solve");
         LA::MPI::Vector
-            completely_distributed_solution(pd->locally_owned_dofs, 
+            completely_distributed_solution(pd->locally_owned_dofs,
                                              pd->mpi_comm);
 
         const double tol = 1e-8 * system_rhs.l2_norm();
@@ -302,7 +242,11 @@ namespace viscosaur
 
         constraints.distribute(completely_distributed_solution);
 
-        soln.cur_vel = completely_distributed_solution;
+        parallel::distributed::Vector<double> abc;
+        abc.reinit(soln.cur_vel);
+        abc = completely_distributed_solution;
+        soln.cur_vel = abc;
+        soln.cur_vel_for_strs = soln.cur_vel;
     }
 
 

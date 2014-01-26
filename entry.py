@@ -44,10 +44,29 @@ def run():
         soln.apply_init_cond(initSzx, initSzy)
         v_solver = vc.Velocity2D(soln, vel, pd)
 
-        strs_update.step(soln)
+        strs_update.tentative_step(soln)
         v_solver.step(soln)
         soln.output(i, vel)
         pd.refine_grid(soln)
+
+    print "Done with first time step spatial adaptation."
+    strs_update = vc.Stress2D(soln, pd)
+    soln.apply_init_cond(initSzx, initSzy)
+    v_solver = vc.Velocity2D(soln, vel, pd)
+#12687
+    t = 0
+    while t < params['t_max']:
+        t += params['time_step']
+        print("Solving for time = " + str(t / defaults.secs_in_a_year))
+
+        vel.set_t(t)
+        v_solver.update_bc(vel)
+
+        strs_update.tentative_step(soln)
+        v_solver.step(soln)
+        strs_update.correction_step(soln)
+        # Fix the output naming scheme
+        soln.output(i, vel)
 
 run()
 # one_step_strs()

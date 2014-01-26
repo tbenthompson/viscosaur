@@ -85,6 +85,8 @@ namespace viscosaur
                     ProblemData<dim> &p_pd);
 
             void step(Solution<dim> &soln);
+
+            void update_bc(dealii::Function<dim> &bc);
         private:
             void setup_system(dealii::Function<dim> &bc,
                               Solution<dim> &soln);

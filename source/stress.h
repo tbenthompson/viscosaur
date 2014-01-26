@@ -22,17 +22,20 @@ namespace viscosaur
             Stress(Solution<dim> &soln,
                    ProblemData<dim> &p_pd);
             ~Stress();
-            void step(Solution<dim> &soln);
-
+            void generic_step(
+                 dealii::parallel::distributed::Vector<double> &input,
+                 dealii::parallel::distributed::Vector<double> &output,
+                 Solution<dim> &soln,
+                 unsigned int component,
+                 StressOp<dim, fe_degree> &op);
+            void tentative_step(Solution<dim> &soln);
+            void correction_step(Solution<dim> &soln);
         private:
-            void init();
-
             dealii::ConstraintMatrix     constraints;
-            dealii::MatrixFree<dim,double> matrix_free_szx;
-            dealii::MatrixFree<dim,double> matrix_free_szy;
+            dealii::MatrixFree<dim,double> matrix_free;
             ProblemData<dim>* pd;
-            StressOp<dim, fe_degree>* op_szx;
-            StressOp<dim, fe_degree>* op_szy;
+            StressOp<dim, fe_degree>* t_step;
+            StressOp<dim, fe_degree>* c_step;
 
             double time;
             double time_step;

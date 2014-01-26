@@ -116,7 +116,8 @@ BOOST_PYTHON_MODULE(viscosaur)
     class_<vc::Velocity<2>, boost::noncopyable>("Velocity2D", 
         init<vc::Solution<2>&, dealii::Function<2>&,
              vc::ProblemData<2>&>())
-        .def("step", &vc::Velocity<2>::step);
+        .def("step", &vc::Velocity<2>::step)
+        .def("update_bc", &vc::Velocity<2>::update_bc);
     class_<vc::Velocity<3>, boost::noncopyable>("Velocity3D", 
         init<vc::Solution<3>&, dealii::Function<3>&,
              vc::ProblemData<3>&>())
@@ -126,6 +127,7 @@ BOOST_PYTHON_MODULE(viscosaur)
      */
     class_<vc::Stress<2>, boost::noncopyable>("Stress2D", 
         init<vc::Solution<2>&, vc::ProblemData<2>&>())
-        .def("step", &vc::Stress<2>::step);
+        .def("tentative_step", &vc::Stress<2>::tentative_step)
+        .def("correction_step", &vc::Stress<2>::correction_step);
 }
 

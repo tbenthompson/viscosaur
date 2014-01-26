@@ -34,8 +34,9 @@ namespace viscosaur
             dealii::parallel::distributed::Vector<double> old_szx;
             dealii::parallel::distributed::Vector<double> old_szy;
 
-            LA::MPI::Vector cur_vel;
-            LA::MPI::Vector old_vel;
+            dealii::parallel::distributed::Vector<double> cur_vel;
+            dealii::parallel::distributed::Vector<double> cur_vel_for_strs;
+            dealii::parallel::distributed::Vector<double> old_vel;
 
             ProblemData<dim>* pd;
     };
