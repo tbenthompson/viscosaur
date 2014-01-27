@@ -32,9 +32,9 @@ tla = vc.TwoLayerAnalytic(params['fault_slip'],
                           params['viscosity'], sf)
 initSzx = vc.SimpleInitSzx2D(tla)
 initSzy = vc.SimpleInitSzy2D(tla)
-soln = vc.Solution2D(pd)
 
 def run():
+    soln = vc.Solution2D(pd)
     vel = vc.SimpleVelocity2D(tla)
     vel.set_t(params['time_step'])
 
@@ -71,7 +71,6 @@ def run():
         pd.start_refine(soln)
         print "Started refinement!"
         sol_trans = soln.start_refine()
-        import pdb;pdb.set_trace()
         print "Prepared solution transfer!"
         pd.execute_refine()
         print "Refinement!"
@@ -80,6 +79,7 @@ def run():
         v_solver = vc.Velocity2D(new_soln, vel, pd)
         print "New Objs!"
         new_soln.post_refine(sol_trans)
+        soln = new_soln
 
 
 run()

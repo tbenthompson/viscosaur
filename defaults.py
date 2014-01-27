@@ -19,8 +19,8 @@ def default_params():
     defaults['initial_adaptive_refines'] = 10
 
     # Maximum and minimum refinement levels
-    defaults['max_grid_level'] = 20
-    defaults['min_grid_level'] = 2
+    defaults['max_grid_level'] = 14
+    defaults['min_grid_level'] = 3
 
     # Refinement and coarsening percentages
     defaults['refine_frac'] = 0.2

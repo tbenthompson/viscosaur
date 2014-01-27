@@ -120,11 +120,11 @@ namespace viscosaur
             sol_trans = new parallel::distributed::SolutionTransfer<dim, 
             parallel::distributed::Vector<double> >(pd->dof_handler);    
 
-        // std::vector<const parallel::distributed::Vector<double>* > vecs(3);
-        // vecs.push_back(&cur_vel);
-        // vecs.push_back(&cur_szx);
-        // vecs.push_back(&cur_szy);
-        sol_trans->prepare_for_coarsening_and_refinement(cur_vel);
+        std::vector<const parallel::distributed::Vector<double>* > vecs(3);
+        vecs[0] = &cur_vel;
+        vecs[1] = &cur_szx;
+        vecs[2] = &cur_szy;
+        sol_trans->prepare_for_coarsening_and_refinement(vecs);
 
         return sol_trans;
     }
@@ -136,15 +136,11 @@ namespace viscosaur
     post_refine(parallel::distributed::SolutionTransfer<dim, 
             parallel::distributed::Vector<double> >* sol_trans)
     {
-        // std::vector<parallel::distributed::Vector<double>* > vecs(3);
-        // vecs.push_back(&cur_vel);
-        // vecs.push_back(&cur_szx);
-        // vecs.push_back(&cur_szy);
-        // sol_trans->interpolate(vecs);
-        parallel::distributed::Vector<double> vec;
-        vec.reinit(pd->locally_owned_dofs, pd->mpi_comm);
-        sol_trans->interpolate(vec);
-        cur_vel = vec;
+        std::vector<parallel::distributed::Vector<double>* > vecs(3);
+        vecs[0] = &cur_vel;
+        vecs[1] = &cur_szx;
+        vecs[2] = &cur_szy;
+        sol_trans->interpolate(vecs);
     }
 
     template class Solution<2>;
