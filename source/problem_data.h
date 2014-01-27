@@ -33,7 +33,8 @@ namespace viscosaur
             ~ProblemData();
             void init_mesh();
             void init_dofs();
-            void refine_grid(Solution<dim> &soln);
+            void start_refine(Solution<dim> &soln);
+            void execute_refine();
             dealii::CompressedSimpleSparsityPattern* create_sparsity_pattern(
                     dealii::ConstraintMatrix &constraints);
             dealii::ConstraintMatrix* create_constraints();

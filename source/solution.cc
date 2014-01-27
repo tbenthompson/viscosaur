@@ -109,6 +109,44 @@ namespace viscosaur
         }
     }
 
+    template <int dim>
+    parallel::distributed::SolutionTransfer<dim, 
+            parallel::distributed::Vector<double> >* 
+    Solution<dim>::
+    start_refine()
+    {
+        parallel::distributed::SolutionTransfer<dim, 
+            parallel::distributed::Vector<double> >*
+            sol_trans = new parallel::distributed::SolutionTransfer<dim, 
+            parallel::distributed::Vector<double> >(pd->dof_handler);    
+
+        // std::vector<const parallel::distributed::Vector<double>* > vecs(3);
+        // vecs.push_back(&cur_vel);
+        // vecs.push_back(&cur_szx);
+        // vecs.push_back(&cur_szy);
+        sol_trans->prepare_for_coarsening_and_refinement(cur_vel);
+
+        return sol_trans;
+    }
+    
+
+    template <int dim>
+    void
+    Solution<dim>::
+    post_refine(parallel::distributed::SolutionTransfer<dim, 
+            parallel::distributed::Vector<double> >* sol_trans)
+    {
+        // std::vector<parallel::distributed::Vector<double>* > vecs(3);
+        // vecs.push_back(&cur_vel);
+        // vecs.push_back(&cur_szx);
+        // vecs.push_back(&cur_szy);
+        // sol_trans->interpolate(vecs);
+        parallel::distributed::Vector<double> vec;
+        vec.reinit(pd->locally_owned_dofs, pd->mpi_comm);
+        sol_trans->interpolate(vec);
+        cur_vel = vec;
+    }
+
     template class Solution<2>;
     template class Solution<3>;
 }

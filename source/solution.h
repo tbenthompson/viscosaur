@@ -3,6 +3,7 @@
 
 #include <deal.II/lac/parallel_vector.h>
 #include <deal.II/lac/generic_linear_algebra.h>
+#include <deal.II/distributed/solution_transfer.h>
 #include "linear_algebra.h"
 
 namespace dealii
@@ -26,6 +27,15 @@ namespace viscosaur
                                         const unsigned int subdomain) const;
             void output(const unsigned int cycle,
                         dealii::Function<dim> &vel) const;
+
+            dealii::parallel::distributed::SolutionTransfer<dim, 
+                dealii::parallel::distributed::Vector<double> >*
+                    start_refine();
+
+            void post_refine(
+                    dealii::parallel::distributed::SolutionTransfer<dim, 
+                        dealii::parallel::distributed::Vector<double> >*
+                    sol_trans);
 
             dealii::parallel::distributed::Vector<double> cur_szx;
             dealii::parallel::distributed::Vector<double> cur_szy;

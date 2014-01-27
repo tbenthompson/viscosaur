@@ -47,13 +47,13 @@ def run():
         strs_update.tentative_step(soln)
         v_solver.step(soln)
         soln.output(i, vel)
-        pd.refine_grid(soln)
+        pd.start_refine(soln)
+        pd.execute_refine()
 
     print "Done with first time step spatial adaptation."
     strs_update = vc.Stress2D(soln, pd)
     soln.apply_init_cond(initSzx, initSzy)
     v_solver = vc.Velocity2D(soln, vel, pd)
-#12687
     t = 0
     while t < params['t_max']:
         t += params['time_step']
@@ -67,6 +67,20 @@ def run():
         strs_update.correction_step(soln)
         # Fix the output naming scheme
         soln.output(i, vel)
+
+        pd.start_refine(soln)
+        print "Started refinement!"
+        sol_trans = soln.start_refine()
+        import pdb;pdb.set_trace()
+        print "Prepared solution transfer!"
+        pd.execute_refine()
+        print "Refinement!"
+        new_soln = vc.Solution2D(pd)
+        strs_update = vc.Stress2D(new_soln, pd)
+        v_solver = vc.Velocity2D(new_soln, vel, pd)
+        print "New Objs!"
+        new_soln.post_refine(sol_trans)
+
 
 run()
 # one_step_strs()

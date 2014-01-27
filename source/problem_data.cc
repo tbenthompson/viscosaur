@@ -145,7 +145,7 @@ namespace viscosaur
     template <int dim>
     void 
     ProblemData<dim>::
-    refine_grid(Solution<dim> &soln)
+    start_refine(Solution<dim> &soln)
     {
         TimerOutput::Scope t(computing_timer, "refine");
 
@@ -184,7 +184,6 @@ namespace viscosaur
                     estimated_error_per_cell,
                     refine_frac, coarse_frac);
 
-
         // Don't overrefine or underrefine. 
         if (triangulation.n_levels() > max_grid_level)
             for (typename Triangulation<dim>::active_cell_iterator
@@ -195,7 +194,13 @@ namespace viscosaur
              cell = triangulation.begin_active(min_grid_level);
              cell != triangulation.end_active(min_grid_level); ++cell)
             cell->clear_coarsen_flag ();
+    }
 
+    template <int dim>
+    void
+    ProblemData<dim>::
+    execute_refine()
+    {
         //Actually perform the grid adaption.
         triangulation.execute_coarsening_and_refinement();
 

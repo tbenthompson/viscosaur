@@ -19,6 +19,8 @@
 #include <deal.II/base/point.h>
 #include <deal.II/base/function.h>
 #include <deal.II/dofs/dof_handler.h>
+#include <deal.II/lac/parallel_vector.h>
+#include <deal.II/distributed/solution_transfer.h>
 namespace vc = viscosaur;
 
 
@@ -41,6 +43,9 @@ BOOST_PYTHON_MODULE(viscosaur)
         .def("value", pure_virtual(&dealii::Function<3>::value));
     class_<dealii::PETScWrappers::MPI::Vector>("PETScWrappers", no_init);
     class_<dealii::DoFHandler<2>, boost::noncopyable>("DoFHander2D", no_init);
+    class_<dealii::parallel::distributed::SolutionTransfer<2,
+            dealii::parallel::distributed::Vector<double> >, boost::noncopyable>
+                ("SolutionTransfer2D", no_init);
 
     /* Basic viscosaur functions.
      */
@@ -99,7 +104,10 @@ BOOST_PYTHON_MODULE(viscosaur)
     class_<vc::Solution<2>, boost::noncopyable>("Solution2D", 
         init<vc::ProblemData<2>&>())
         .def("apply_init_cond", &vc::Solution<2>::apply_init_cond)
-        .def("output", &vc::Solution<2>::output);
+        .def("output", &vc::Solution<2>::output)
+        .def("start_refine", &vc::Solution<2>::start_refine,
+                return_value_policy<manage_new_object>())
+        .def("post_refine", &vc::Solution<2>::post_refine);
 
     /* Expose the Velocity solver. I separate the 2D and 3D because exposing
      * the templating to python is difficult.
@@ -109,7 +117,8 @@ BOOST_PYTHON_MODULE(viscosaur)
 
     class_<vc::ProblemData<2>, boost::noncopyable>("ProblemData2D",
                                                     init<dict&>()).
-        def("refine_grid", &vc::ProblemData<2>::refine_grid);
+        def("start_refine", &vc::ProblemData<2>::start_refine).
+        def("execute_refine", &vc::ProblemData<2>::execute_refine);
     class_<vc::ProblemData<3>, boost::noncopyable>("ProblemData3D",
                                                     init<dict&>());
 
