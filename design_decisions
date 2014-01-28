@@ -1,2 +1,13 @@
+Dependencies:
+python libraries:
+--ctypes?
+--tarfile?
+
+C++ libraries:
+--GSL
+--Boost
+--deal.II
+--p4est
+
 All quantities will be scalar valued and the python-layer user code
 will be required to handle the vector relationships between the quantities

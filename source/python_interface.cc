@@ -9,7 +9,7 @@
 #include <boost/array.hpp>
 
 #include "analytic.h"
-#include "poisson.h"
+#include "velocity.h"
 #include "problem_data.h"
 #include "control.h"
 #include "stress.h"

@@ -1,5 +1,5 @@
-#ifndef __viscosaur_poisson_h
-#define __viscosaur_poisson_h
+#ifndef __viscosaur_velocity_h
+#define __viscosaur_velocity_h
 
 #include <deal.II/base/vectorization.h>
 #include <deal.II/lac/constraint_matrix.h>

@@ -9,7 +9,7 @@
 #include <boost/python/extract.hpp>
 #include "solution.h"
 #include "problem_data.h"
-#include "poisson.h"
+#include "velocity.h"
 
 namespace viscosaur
 {

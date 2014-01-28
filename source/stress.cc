@@ -3,7 +3,7 @@
 #include "stress.h"
 #include "stress_op.h"
 #include "problem_data.h"
-#include "poisson.h"
+#include "velocity.h"
 #include "solution.h"
 
 #include <deal.II/base/logstream.h>
