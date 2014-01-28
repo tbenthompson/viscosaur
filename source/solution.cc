@@ -29,19 +29,20 @@ namespace viscosaur
     }
 
     template <int dim>
-    std::string Solution<dim>::output_filename(const unsigned int cycle,
-            const unsigned int subdomain) const
+    void
+    Solution<dim>::
+    start_timestep()
     {
-        std::string filename = "solution-" +
-                Utilities::int_to_string(cycle, 2) +
-                "." +
-                Utilities::int_to_string(subdomain, 4);
-        return filename;
+        //Flip the solns to retain the old soln.
+        old_szx.swap(cur_szx);
+        old_szy.swap(cur_szy);
+        old_vel.swap(cur_vel);
+        old_vel_for_strs.swap(cur_vel_for_strs);
     }
 
-
     template <int dim>
-    void Solution<dim>::output(const unsigned int cycle,
+    void Solution<dim>::output(std::string data_dir,
+                               std::string filename,
                                Function<dim> &exact) const
     {
         TimerOutput::Scope t(pd->computing_timer, "output");
@@ -86,26 +87,27 @@ namespace viscosaur
 
         data_out.build_patches();
 
-        std::string this_f = output_filename(cycle, this_subd);
-        std::ofstream output(("data/" + this_f + ".vtu").c_str());
+        std::ofstream output((data_dir + "/" + filename + 
+                    Utilities::int_to_string(this_subd, 4) + ".vtu").c_str());
         data_out.write_vtu(output);
 
         if (Utilities::MPI::this_mpi_process(pd->mpi_comm) == 0)
         {
             // Build the list of filenames to store in the master pvtu file
-            std::vector<std::string> filenames;
+            std::vector<std::string> files;
             for (unsigned int i=0;
                     i<Utilities::MPI::n_mpi_processes(pd->mpi_comm);
                     ++i)
             {
-                std::string f = output_filename(cycle, i);
-                filenames.push_back (f + ".vtu");
+                files.push_back(filename + 
+                    Utilities::int_to_string(i, 4) + ".vtu");
             }
 
-            std::ofstream master_output(("data/" + this_f + ".pvtu").c_str());
+            std::ofstream master_output((data_dir + "/" + filename + 
+                    Utilities::int_to_string(this_subd, 4) + ".pvtu").c_str());
             // Write the master pvtu record. Load this pvtu file if you want
             // to view all the data at once. Use a tool like visit or paraview.
-            data_out.write_pvtu_record(master_output, filenames);
+            data_out.write_pvtu_record(master_output, files);
         }
     }
 

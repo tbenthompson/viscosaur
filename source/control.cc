@@ -22,6 +22,12 @@ namespace viscosaur
         dealii::deallog.depth_console (0);
     }
 
+    int
+    Vc::get_rank()
+    {
+        return dealii::Utilities::MPI::this_mpi_process(MPI_COMM_WORLD);
+    }
+
     Vc::~Vc()
     {
         delete this->mpi;

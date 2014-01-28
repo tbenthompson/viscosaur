@@ -23,10 +23,11 @@ namespace viscosaur
             void apply_init_cond(dealii::Function<dim> &init_szx,
                      dealii::Function<dim> &init_szy);
 
-            std::string output_filename(const unsigned int cycle,
-                                        const unsigned int subdomain) const;
-            void output(const unsigned int cycle,
+            void output(std::string data_dir,
+                        std::string filename,
                         dealii::Function<dim> &vel) const;
+
+            void start_timestep();
 
             dealii::parallel::distributed::SolutionTransfer<dim, 
                 dealii::parallel::distributed::Vector<double> >*
@@ -47,6 +48,7 @@ namespace viscosaur
             dealii::parallel::distributed::Vector<double> cur_vel;
             dealii::parallel::distributed::Vector<double> cur_vel_for_strs;
             dealii::parallel::distributed::Vector<double> old_vel;
+            dealii::parallel::distributed::Vector<double> old_vel_for_strs;
 
             ProblemData<dim>* pd;
     };

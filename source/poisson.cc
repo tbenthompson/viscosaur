@@ -97,6 +97,8 @@ namespace viscosaur
         delete csp;
         soln.cur_vel.reinit(pd->locally_owned_dofs,
                 pd->locally_relevant_dofs, pd->mpi_comm);
+        soln.old_vel.reinit(pd->locally_owned_dofs,
+                pd->locally_relevant_dofs, pd->mpi_comm);
     }
 
     template <int dim>
@@ -165,14 +167,14 @@ namespace viscosaur
             for (unsigned int q = 0; q < n_q_points; ++q)
             {
                 JxW = fe_values.JxW(q);
-                for (unsigned int i=0; i<dofs_per_cell; ++i)
+                for (unsigned int i=0; i < dofs_per_cell; ++i)
                 {
                     grad[i] = fe_values.shape_grad(i, q);
                     val[i] = fe_values.shape_value(i, q);
                 }
                 // This pair of loops is symmetric. I cut the assembly
                 // cost in half by taking advantage of this.
-                for (unsigned int i=0; i<dofs_per_cell; ++i)
+                for (unsigned int i=0; i < dofs_per_cell; ++i)
                 {
                     for (unsigned int j = 0; j <= i; ++j)
                     {

@@ -49,7 +49,8 @@ BOOST_PYTHON_MODULE(viscosaur)
 
     /* Basic viscosaur functions.
      */
-    class_<vc::Vc>("Vc", init<boost::python::list>());
+    class_<vc::Vc>("Vc", init<boost::python::list>())
+        .def("get_rank", &vc::Vc::get_rank);
 
     /* Expose the analytic solution. 
      * The SlipFnc base class is a slightly different boost expose
@@ -105,6 +106,7 @@ BOOST_PYTHON_MODULE(viscosaur)
         init<vc::ProblemData<2>&>())
         .def("apply_init_cond", &vc::Solution<2>::apply_init_cond)
         .def("output", &vc::Solution<2>::output)
+        .def("start_timestep", &vc::Solution<2>::start_timestep)
         .def("start_refine", &vc::Solution<2>::start_refine,
                 return_value_policy<manage_new_object>())
         .def("post_refine", &vc::Solution<2>::post_refine);

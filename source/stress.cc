@@ -61,11 +61,16 @@ namespace viscosaur
         soln.tent_szx.reinit(soln.cur_szx);
         soln.tent_szy.reinit(soln.cur_szx);
         soln.cur_vel_for_strs.reinit(soln.cur_szx);
+        soln.cur_vel_for_strs.update_ghost_values();
+        soln.old_vel_for_strs.reinit(soln.cur_szx);
+        soln.old_vel_for_strs.update_ghost_values();
 
         InvViscosity<dim>* inv_visc = new InvViscosity<dim>(*pd);
         //Make a vector of stress ops, so that degree can be flexible.
         //First check if the initialization takes a substantial amount of time.
-        t_step = new TentativeOp<dim, fe_degree>(matrix_free, time_step, 
+        //TODO:Separate this out to the python layer. Maybe provide a "factory"
+        //type system that produces 1st,2nd,3rd,4th order versions?
+        t_step = new TentativeOp2<dim, fe_degree>(matrix_free, time_step, 
                                               *pd, *inv_visc);
         c_step = new CorrectionOp<dim, fe_degree>(matrix_free, time_step, 
                                               *pd, *inv_visc);
@@ -104,12 +109,9 @@ namespace viscosaur
     Stress<dim>::tentative_step(Solution<dim> &soln)
     {
         //Move the time forward
+        //TODO: Get this out of this class!
         time += time_step;
         timestep_number++;
-
-        //Flip the solns to retain the old soln.
-        soln.old_szx.swap(soln.cur_szx);
-        soln.old_szy.swap(soln.cur_szy);
 
         //Take a step using the first step operator
         generic_step(soln.old_szx, soln.tent_szx, soln, 0, *t_step);

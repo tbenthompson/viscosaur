@@ -26,21 +26,21 @@
 
 
 
-    "status": "closed", 
+    "status": "open", 
 
 
 
 
 
 
-    "summary": "Think about improved software design.", 
+    "summary": "Add some assertions and checks to make sure all is well at Runtime.", 
 
 
 
 
 
 
-    "time": "Fri, 10 Jan 2014 03:29:22 +0000"
+    "time": "Mon, 27 Jan 2014 17:52:18 +0000"
 
 
 

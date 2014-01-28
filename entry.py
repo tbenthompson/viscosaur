@@ -1,4 +1,5 @@
 import sys
+import os
 import viscosaur as vc
 import copy
 import defaults
@@ -14,17 +15,40 @@ import defaults
 import ctypes
 mpi = ctypes.CDLL('libmpi.so.0', ctypes.RTLD_GLOBAL)
 
-# Set up the parameters to be used.
-params = defaults.default_params()
-params['abc'] = 1000
-
 # Initialize the viscosaur system, including deal.ii, PETSc (or Trilinos),
 # and MPI.
 instance = vc.Vc(sys.argv)
+mpi_rank = instance.get_rank()
+def proc0_out(info):
+    if mpi_rank is 0:
+        print(info)
+
+# Set up the parameters to be used.
+params = defaults.default_params()
+params['initial_adaptive_refines'] = 5
+params['max_grid_level'] = 9
+params['time_step'] = params['t_max'] / 10.0
+
+
+
+# Clear the data directory if asked. The user is trusted to set the parameter
+# appropriately and not delete precious data
+if params['clear_data_dir'] and (mpi_rank is 0):
+    folder = params['data_dir']
+    for the_file in os.listdir(folder):
+        file_path = os.path.join(folder, the_file)
+        try:
+            if os.path.isfile(file_path):
+                os.unlink(file_path)
+        except Exception, e:
+            print e
+
 
 pd = vc.ProblemData2D(params)
 # We must define the slip fnc outside the TLA constructor, otherwise
 # it appears to get deleted (maybe by python?)
+# TODO: Use boost python custodian and ward to maintain existence of some
+# objects that otherwise get garbage collected by python
 sf = vc.ConstantSlipFnc(params['fault_depth'])
 tla = vc.TwoLayerAnalytic(params['fault_slip'],
                           params['fault_depth'],
@@ -44,44 +68,48 @@ def run():
         soln.apply_init_cond(initSzx, initSzy)
         v_solver = vc.Velocity2D(soln, vel, pd)
 
+        soln.start_timestep()
         strs_update.tentative_step(soln)
         v_solver.step(soln)
-        soln.output(i, vel)
+        # soln.output(i, vel)
         pd.start_refine(soln)
         pd.execute_refine()
 
-    print "Done with first time step spatial adaptation."
+    proc0_out("Done with first time step spatial adaptation.")
     strs_update = vc.Stress2D(soln, pd)
     soln.apply_init_cond(initSzx, initSzy)
     v_solver = vc.Velocity2D(soln, vel, pd)
     t = 0
+    i = 0
     while t < params['t_max']:
         t += params['time_step']
-        print("Solving for time = " + str(t / defaults.secs_in_a_year))
+        proc0_out("Solving for time = " + str(t / defaults.secs_in_a_year))
 
         vel.set_t(t)
         v_solver.update_bc(vel)
 
+        soln.start_timestep()
         strs_update.tentative_step(soln)
         v_solver.step(soln)
         strs_update.correction_step(soln)
         # Fix the output naming scheme
-        soln.output(i, vel)
+        filename = "solution-" + str(i) + "."
+        # soln.output(params['data_dir'], filename, vel)
+
 
         pd.start_refine(soln)
-        print "Started refinement!"
         sol_trans = soln.start_refine()
-        print "Prepared solution transfer!"
         pd.execute_refine()
-        print "Refinement!"
         new_soln = vc.Solution2D(pd)
         strs_update = vc.Stress2D(new_soln, pd)
         v_solver = vc.Velocity2D(new_soln, vel, pd)
-        print "New Objs!"
         new_soln.post_refine(sol_trans)
         soln = new_soln
+        i += 1
 
 
 run()
 # one_step_strs()
-print "From python: run complete"
+if params['compress_data_dir']:
+    pass
+proc0_out("From python: run complete")

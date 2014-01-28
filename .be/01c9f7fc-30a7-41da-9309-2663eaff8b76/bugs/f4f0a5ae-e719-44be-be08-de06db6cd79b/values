@@ -26,21 +26,21 @@
 
 
 
-    "status": "closed", 
+    "status": "open", 
 
 
 
 
 
 
-    "summary": "Think about improved software design.", 
+    "summary": "Get rid of the _for_strs variables, if possible.", 
 
 
 
 
 
 
-    "time": "Fri, 10 Jan 2014 03:29:22 +0000"
+    "time": "Tue, 28 Jan 2014 01:03:58 +0000"
 
 
 

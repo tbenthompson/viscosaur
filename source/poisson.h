@@ -26,24 +26,15 @@ namespace viscosaur
     template <int dim> class Velocity;
     template <int dim> class Solution;
 
-
-    /* Using higher order polynomials results in a problem with very slow 
-     * assembly. I suspect the fe_values.shape_grad call is not caching 
-     * the values properly
-     */
-
     /*
      * The Velocity Solver. Most of this code is extracted from tutorial 40
      * on the deal.ii website. Currently located at
      * http://www.dealii.org/8.1.0/doxygen/deal.II/step_40.html 
      *
      * Add some documentation...
-     *
-     * Note that this entire class is defined in the header. This is required
-     * for a templated class. C++11 may have "fixed" this. Check?
      */
     template <int dim>
-    class InvViscosity: public dealii::Function<dim>
+    class InvViscosity
     {
         public:
             InvViscosity(ProblemData<dim> &p_pd);
@@ -51,25 +42,56 @@ namespace viscosaur
             virtual dealii::VectorizedArray<double>
                 value(const dealii::Point<
                         dim, dealii::VectorizedArray<double> > &p,
-                      const unsigned int component) const
+                      const dealii::VectorizedArray<double> &strs) const
             {
                 dealii::VectorizedArray<double> retval; 
                 for(int i = 0; i < p[0].n_array_elements; i++) 
                 {
-                    dealii::Point<dim, double> newp(p[0][i], p[1][i]);
-                    retval.data[i] = value(newp, component);
+                    dealii::Point<dim, double> newp;
+                    for(int d = 0; d < dim; d++) 
+                    {
+                        newp[d] = p[d][i];
+                    }
+                    retval.data[i] = value(newp, strs[i]);
+                }
+                return retval;
+            }
+
+            virtual dealii::VectorizedArray<double>
+                strs_deriv(const dealii::Point<
+                        dim, dealii::VectorizedArray<double> > &p,
+                      const dealii::VectorizedArray<double> &strs) const
+            {
+                dealii::VectorizedArray<double> retval; 
+                for(int i = 0; i < p[0].n_array_elements; i++) 
+                {
+                    dealii::Point<dim, double> newp;
+                    for(int d = 0; d < dim; d++) 
+                    {
+                        newp[d] = p[d][i];
+                    }
+                    retval.data[i] = strs_deriv(newp, strs[i]);
                 }
                 return retval;
             }
 
             virtual double value(const dealii::Point<dim>  &p,
-                         const unsigned int component) const
+                                 const double strs) const
             {
                 if (p(1) < layer_depth)
                 {
                     return 0;
                 }
                 return inv_viscosity;
+            }
+
+            /* Derivative of the inverse viscosity function with respect to the
+             * stress.
+             */
+            virtual double strs_deriv(const dealii::Point<dim>  &p,
+                                 const double strs) const
+            {
+                return 0;
             }
 
             double layer_depth;

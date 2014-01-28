@@ -30,12 +30,13 @@ def default_params():
     defaults['t_max'] = 100.0 * secs_in_a_year
     defaults['time_step'] = defaults['t_max'] / 120.0
 
-    # TODO: Implement this!
+    # Clears the data directory at the beginning of computation.
     defaults['clear_data_dir'] = True
-    # TODO: Implement this!
-    defaults['compress_data_dir_on_finish'] = True
+    # Compresses the data directory to a file of the same name in the top level
+    # directory after computation is complete.
+    defaults['compress_data_dir'] = True
     # Where to save data?
-    defaults['data_dir'] = 'data'
+    defaults['data_dir'] = 'data/test'
 
     # Initial stress setup -- fed into an elastic half-space solution
     # to determine initial conditions. In the future, I could numerically

@@ -61,6 +61,8 @@ namespace viscosaur
             Vc(boost::python::list args);
             ~Vc();
 
+            int get_rank();
+
         private:
             dealii::Utilities::MPI::MPI_InitFinalize* mpi;
     };
