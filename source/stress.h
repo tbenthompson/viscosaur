@@ -11,6 +11,7 @@ namespace viscosaur
 {
     template <int dim> class ProblemData; 
     template <int dim> class Solution; 
+    template <int dim> class Scheme;
     template <int dim, int fe_degree> class StressOp;
 
     const unsigned int fe_degree = 2;
@@ -28,18 +29,12 @@ namespace viscosaur
                  Solution<dim> &soln,
                  unsigned int component,
                  StressOp<dim, fe_degree> &op);
-            void tentative_step(Solution<dim> &soln);
-            void correction_step(Solution<dim> &soln);
+            void tentative_step(Solution<dim> &soln, Scheme<dim> &scheme);
+            void correction_step(Solution<dim> &soln, Scheme<dim> &scheme);
         private:
             dealii::ConstraintMatrix     constraints;
             dealii::MatrixFree<dim,double> matrix_free;
             ProblemData<dim>* pd;
-            StressOp<dim, fe_degree>* t_step;
-            StressOp<dim, fe_degree>* c_step;
-
-            double time;
-            double time_step;
-            unsigned int timestep_number;
     };
 }
 #endif

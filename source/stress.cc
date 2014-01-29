@@ -1,6 +1,7 @@
 /* This file is based on the step 48 tutorial from the deal.II documentation.
  */
 #include "stress.h"
+#include "scheme.h"
 #include "stress_op.h"
 #include "problem_data.h"
 #include "velocity.h"
@@ -39,7 +40,7 @@ namespace viscosaur
     {
         pd = &p_pd;
         TimerOutput::Scope t(pd->computing_timer, "setup_stress");
-        time_step = bp::extract<double>(pd->parameters["time_step"]);
+        double time_step = bp::extract<double>(pd->parameters["time_step"]);
 
         constraints = *pd->create_constraints();
         constraints.close();
@@ -58,6 +59,8 @@ namespace viscosaur
         soln.cur_szy.reinit(soln.cur_szx);
         soln.old_szx.reinit(soln.cur_szx);
         soln.old_szy.reinit(soln.cur_szx);
+        soln.old_old_szx.reinit(soln.cur_szx);
+        soln.old_old_szy.reinit(soln.cur_szx);
         soln.tent_szx.reinit(soln.cur_szx);
         soln.tent_szy.reinit(soln.cur_szx);
         soln.cur_vel_for_strs.reinit(soln.cur_szx);
@@ -70,17 +73,19 @@ namespace viscosaur
         //First check if the initialization takes a substantial amount of time.
         //TODO:Separate this out to the python layer. Maybe provide a "factory"
         //type system that produces 1st,2nd,3rd,4th order versions?
-        t_step = new TentativeOp2<dim, fe_degree>(matrix_free, time_step, 
-                                              *pd, *inv_visc);
-        c_step = new CorrectionOp<dim, fe_degree>(matrix_free, time_step, 
-                                              *pd, *inv_visc);
+        // t_step0 = new TentativeOp<dim, fe_degree>(matrix_free, time_step, 
+        //                                       *pd, *inv_visc);
+        // t_step = new TentativeOp2<dim, fe_degree>(matrix_free, time_step, 
+        //                                       *pd, *inv_visc);
+        // c_step0 = new CorrectionOp<dim, fe_degree>(matrix_free, time_step, 
+        //                                       *pd, *inv_visc);
+        // c_step = new CorrectionOp2<dim, fe_degree>(matrix_free, time_step, 
+        //                                       *pd, *inv_visc);
     }
 
     template <int dim>
     Stress<dim>::~Stress()
     {
-        delete t_step;
-        delete c_step;
     }
 
     template <int dim>
@@ -106,24 +111,22 @@ namespace viscosaur
 
     template <int dim>
     void
-    Stress<dim>::tentative_step(Solution<dim> &soln)
+    Stress<dim>::tentative_step(Solution<dim> &soln, 
+                                Scheme<dim> &scheme)
     {
-        //Move the time forward
-        //TODO: Get this out of this class!
-        time += time_step;
-        timestep_number++;
-
-        //Take a step using the first step operator
-        generic_step(soln.old_szx, soln.tent_szx, soln, 0, *t_step);
-        generic_step(soln.old_szy, soln.tent_szy, soln, 1, *t_step);
+        StressOp<dim, fe_degree>* stepper = scheme.get_tentative_stepper();
+        generic_step(soln.old_szx, soln.tent_szx, soln, 0, *stepper);
+        generic_step(soln.old_szy, soln.tent_szy, soln, 1, *stepper);
     }
 
     template <int dim>
     void
-    Stress<dim>::correction_step(Solution<dim> &soln)
+    Stress<dim>::correction_step(Solution<dim> &soln,
+                                 Scheme<dim>& scheme)
     {
-        generic_step(soln.tent_szx, soln.cur_szx, soln, 0, *c_step);
-        generic_step(soln.tent_szy, soln.cur_szy, soln, 1, *c_step);
+        StressOp<dim, fe_degree>* stepper = scheme.get_correction_stepper();
+        generic_step(soln.tent_szx, soln.cur_szx, soln, 0, *stepper);
+        generic_step(soln.tent_szy, soln.cur_szy, soln, 1, *stepper);
     }
 
     template class Stress<2>;

@@ -99,6 +99,10 @@ BOOST_PYTHON_MODULE(viscosaur)
         ("SimpleVelocity2D", init<vc::TwoLayerAnalytic&>())
         .def("value", &vc::SimpleVelocity<2>::value)
         .def("set_t", &vc::SimpleVelocity<2>::set_t);
+    class_<vc::SimpleDeltaVelocity<2>, bases<dealii::Function<2> > >
+        ("SimpleDeltaVelocity2D", init<vc::TwoLayerAnalytic&, double>())
+        .def("value", &vc::SimpleDeltaVelocity<2>::value)
+        .def("set_t", &vc::SimpleDeltaVelocity<2>::set_t);
 
     /* Solution object
      */

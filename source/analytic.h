@@ -198,5 +198,35 @@ namespace viscosaur
             TwoLayerAnalytic* tla;
             double t;
     };
+
+    template <int dim>
+    class SimpleDeltaVelocity: public dealii::Function<dim>
+    {
+        public:
+            SimpleDeltaVelocity(
+                    TwoLayerAnalytic &p_tla, const double time_step):
+                dealii::Function<dim>(1)
+            {
+                tla = &p_tla;
+                t = 0;
+                this->time_step = time_step;
+            } 
+
+            void set_t(double p_t)
+            {
+                t = p_t;
+            }
+
+            virtual double value (const dealii::Point<dim>   &p,
+                                  const unsigned int  component) const
+            {
+                return (tla->simple_velocity(p(0), p(1), t) -
+                        tla->simple_velocity(p(0), p(1), t - time_step));
+            }
+        private:
+            TwoLayerAnalytic* tla;
+            double t;
+            double time_step;
+    };
 }
 #endif

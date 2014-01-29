@@ -21,19 +21,27 @@ namespace viscosaur
     void
     Solution<dim>::
     apply_init_cond(Function<dim> &init_szx,
-                    Function<dim> &init_szy)
+                    Function<dim> &init_szy,
+                    Function<dim> &init_vel)
     {
         TimerOutput::Scope t(pd->computing_timer, "init_cond");
         VectorTools::interpolate(pd->dof_handler, init_szx, cur_szx);
         VectorTools::interpolate(pd->dof_handler, init_szy, cur_szy);
+        VectorTools::interpolate(pd->dof_handler, init_vel, cur_vel);
+        cur_vel_for_strs = cur_vel;
     }
 
     template <int dim>
     void
     Solution<dim>::
-    start_timestep()
+    start_timestep(const unsigned int step_index,
+                   const double time)
     {
+        this->step_index = step_index;
+        this->time = time;
         //Flip the solns to retain the old soln.
+        old_old_szx.swap(old_szx);
+        old_old_szy.swap(old_szy);
         old_szx.swap(cur_szx);
         old_szy.swap(cur_szy);
         old_vel.swap(cur_vel);
@@ -53,31 +61,36 @@ namespace viscosaur
         exact_vel.compress(VectorOperation::add);
         exact_vel.update_ghost_values();
 
-        Vector<double> local_errors(pd->triangulation.n_active_cells());
-        VectorTools::integrate_difference(
-                pd->dof_handler,
-                cur_vel,
-                exact,
-                local_errors,
-                QGauss<dim>(3),
-                VectorTools::L2_norm);
+        parallel::distributed::Vector<double> error;
+        error.reinit(pd->locally_owned_dofs, 
+                     pd->locally_relevant_dofs,
+                     pd->mpi_comm);
+        error = cur_vel;
+        error -= exact_vel;
 
-        const double total_local_error = local_errors.l2_norm();
+        const double total_local_error = error.l2_norm();
         const double total_global_error = std::sqrt (
                 dealii::Utilities::MPI::sum (
                     total_local_error * 
                     total_local_error, pd->mpi_comm));
-        pd->pcout << "Total exact error: " << total_global_error << std::endl;
+        const double total_local_exact_norm = exact_vel.l2_norm();
+        const double total_global_exact_norm = std::sqrt (
+                dealii::Utilities::MPI::sum (
+                    total_local_exact_norm * 
+                    total_local_exact_norm, pd->mpi_comm));
+        const double true_error = total_global_error / total_global_exact_norm;
+        pd->pcout << "Scaled error: " << true_error << std::endl;
 
         DataOut<dim> data_out;
         data_out.attach_dof_handler(pd->dof_handler);
         data_out.add_data_vector(cur_vel, "vel");
+        data_out.add_data_vector(poisson_soln, "poisson_soln");
         data_out.add_data_vector(tent_szx, "tentative_szx");
         data_out.add_data_vector(tent_szy, "tentative_szy");
-        // data_out.add_data_vector(cur_szx, "szx");
-        // data_out.add_data_vector(cur_szy, "szy");
+        data_out.add_data_vector(cur_szx, "szx");
+        data_out.add_data_vector(cur_szy, "szy");
         data_out.add_data_vector(exact_vel, "exact_vel");
-        data_out.add_data_vector(local_errors, "error");
+        data_out.add_data_vector(error, "error");
 
         Vector<float> subdomain(pd->triangulation.n_active_cells());
         unsigned int this_subd = pd->triangulation.locally_owned_subdomain();
@@ -117,15 +130,18 @@ namespace viscosaur
     Solution<dim>::
     start_refine()
     {
+        TimerOutput::Scope t(pd->computing_timer, "refine");
         parallel::distributed::SolutionTransfer<dim, 
             parallel::distributed::Vector<double> >*
             sol_trans = new parallel::distributed::SolutionTransfer<dim, 
             parallel::distributed::Vector<double> >(pd->dof_handler);    
 
-        std::vector<const parallel::distributed::Vector<double>* > vecs(3);
+        std::vector<const parallel::distributed::Vector<double>* > vecs(5);
         vecs[0] = &cur_vel;
         vecs[1] = &cur_szx;
         vecs[2] = &cur_szy;
+        vecs[3] = &old_szx;
+        vecs[4] = &old_szy;
         sol_trans->prepare_for_coarsening_and_refinement(vecs);
 
         return sol_trans;
@@ -138,11 +154,15 @@ namespace viscosaur
     post_refine(parallel::distributed::SolutionTransfer<dim, 
             parallel::distributed::Vector<double> >* sol_trans)
     {
-        std::vector<parallel::distributed::Vector<double>* > vecs(3);
+        TimerOutput::Scope t(pd->computing_timer, "refine");
+        std::vector<parallel::distributed::Vector<double>* > vecs(5);
         vecs[0] = &cur_vel;
         vecs[1] = &cur_szx;
         vecs[2] = &cur_szy;
+        vecs[3] = &old_szx;
+        vecs[4] = &old_szy;
         sol_trans->interpolate(vecs);
+        cur_vel_for_strs = cur_vel;
     }
 
     template class Solution<2>;

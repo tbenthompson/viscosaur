@@ -97,6 +97,8 @@ namespace viscosaur
         delete csp;
         soln.cur_vel.reinit(pd->locally_owned_dofs,
                 pd->locally_relevant_dofs, pd->mpi_comm);
+        soln.poisson_soln.reinit(pd->locally_owned_dofs,
+                pd->locally_relevant_dofs, pd->mpi_comm);
         soln.old_vel.reinit(pd->locally_owned_dofs,
                 pd->locally_relevant_dofs, pd->mpi_comm);
     }
@@ -109,6 +111,8 @@ namespace viscosaur
                 0, bc, constraints);
         VectorTools::interpolate_boundary_values(pd->dof_handler,
                 1, bc, constraints);
+        VectorTools::interpolate_boundary_values(pd->dof_handler,
+                2, bc, constraints);
         VectorTools::interpolate_boundary_values(pd->dof_handler,
                 3, bc, constraints);
         constraints.close();
@@ -136,13 +140,18 @@ namespace viscosaur
             cell = pd->dof_handler.begin_active(),
             endc = pd->dof_handler.end();
 
-
         double value;
         const double shear_modulus = 
             bp::extract<double>(pd->parameters["shear_modulus"]);
         const double time_step = 
             bp::extract<double>(pd->parameters["time_step"]);
-        const double factor = 1.0 / (shear_modulus * time_step);
+        double numer = 1.5;
+        // if (soln.step_index == 1)
+        // {
+        //     std::cout << "STEP1" << std::endl;
+        //     numer = 1.0;
+        // }
+        const double factor = numer / (shear_modulus * time_step);
 
         std::vector<Tensor<1, dim> > Szxgrad(n_q_points);
         std::vector<Tensor<1, dim> > Szygrad(n_q_points);
@@ -178,8 +187,8 @@ namespace viscosaur
                 {
                     for (unsigned int j = 0; j <= i; ++j)
                     {
-                        // The main matrix entries are the integral of product of 
-                        // the gradient of the shape functions. We also must accnt
+                    // The main matrix entries are the integral of product of 
+                    // the gradient of the shape functions. We also must accnt
                         // for the mapping between the element and the unit 
                         // element and the size of the element
                         cell_matrix(i,j) += grad[i] * grad[j] * JxW;
@@ -244,10 +253,18 @@ namespace viscosaur
 
         constraints.distribute(completely_distributed_solution);
 
-        parallel::distributed::Vector<double> abc;
-        abc.reinit(soln.cur_vel);
-        abc = completely_distributed_solution;
-        soln.cur_vel = abc;
+        //TODO: BAD!!!!
+        soln.poisson_soln.reinit(soln.cur_vel);
+        soln.poisson_soln = completely_distributed_solution;
+        // if (soln.step_index == 1)
+        // {
+        //     soln.cur_vel = temp;
+        // }
+        // else
+        // {
+            soln.cur_vel = soln.old_vel;
+            soln.cur_vel += soln.poisson_soln;
+        // }
         soln.cur_vel_for_strs = soln.cur_vel;
     }
 

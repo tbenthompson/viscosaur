@@ -26,21 +26,21 @@
 
 
 
-    "status": "closed", 
+    "status": "open", 
 
 
 
 
 
 
-    "summary": "Fix the error measurement code", 
+    "summary": "Move Solution inside the ProblemData class?", 
 
 
 
 
 
 
-    "time": "Tue, 28 Jan 2014 02:20:52 +0000"
+    "time": "Wed, 29 Jan 2014 02:52:19 +0000"
 
 
 

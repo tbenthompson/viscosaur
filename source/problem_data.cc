@@ -201,6 +201,7 @@ namespace viscosaur
     ProblemData<dim>::
     execute_refine()
     {
+        TimerOutput::Scope t(computing_timer, "refine");
         //Actually perform the grid adaption.
         triangulation.execute_coarsening_and_refinement();
 

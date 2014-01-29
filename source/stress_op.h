@@ -46,7 +46,9 @@ namespace viscosaur
             ProblemData<dim>* pd;
             Solution<dim>* soln;
             unsigned int component;
-
+            dealii::VectorizedArray<double> old_val;
+            dealii::Tensor<1, dim, dealii::VectorizedArray<double> >
+                old_grad_vel;
             double time_step;
             double shear_modulus;
             InvViscosity<dim>* inv_visc;
@@ -208,26 +210,42 @@ namespace viscosaur
                  const std::pair<unsigned int,unsigned int> &cell_range)
     {
         dealii::FEEvaluationGL<dim, fe_degree> current(data);
-        dealii::FEEvaluationGL<dim, fe_degree> vel(data);
+        dealii::FEEvaluationGL<dim, fe_degree> old(current);
+        dealii::FEEvaluationGL<dim, fe_degree> old_vel(current);
+        dealii::FEEvaluationGL<dim, fe_degree> vel(current);
         for (unsigned int cell = cell_range.first;
              cell < cell_range.second; 
              ++cell)
         {
             current.reinit(cell);
+            old.reinit(cell);
+            old_vel.reinit(cell);
             vel.reinit(cell);
             current.read_dof_values(input);
+            if (this->component == 0)
+            {
+                old.read_dof_values(this->soln->old_old_szx);
+            } else
+            {
+                old.read_dof_values(this->soln->old_old_szy);
+            }
             vel.read_dof_values_plain(this->soln->cur_vel_for_strs);
+            old_vel.read_dof_values_plain(this->soln->old_vel_for_strs);
             current.evaluate(true, false, false);
+            old.evaluate(true, false, false);
+            old_vel.evaluate(false, true, false);
             vel.evaluate(false, true, false);
 
             for (unsigned int q=0; q < current.n_q_points; ++q)
             {
                 dealii::VectorizedArray<double> current_value = 
                         current.get_value(q);
+                this->old_val = old.get_value(q);
 
                 dealii::Tensor<1, dim, 
                       dealii::VectorizedArray<double> > grad_vel = 
                         vel.get_gradient(q);
+                this->old_grad_vel = old_vel.get_gradient(q);
 
                 // Here's where you modify the time stepping!
                 eval(current, current_value, grad_vel, q);
@@ -252,6 +270,8 @@ namespace viscosaur
         fe_eval.submit_value((this->one - factor) * cur_val, q);
     }
 
+
+
     template <int dim, int fe_degree>
     void 
     TentativeOp2<dim, fe_degree>::
@@ -266,28 +286,31 @@ namespace viscosaur
         dealii::Point<dim, double> p;
         double f_val, fp_val, iv, ivd;
         const double abs_tol = 1e-6;
-        // Loop over all the components of the vectorized array.
-        // This is inefficient, but I can't figure out an alternative, because
-        // we need to perform newton iterations on each component. 
-        // Do if statements work with vectorizedarrays?
-        for(unsigned int comp = 0; comp < 
-                cur_val.n_array_elements; comp++)
+        for(unsigned int array_el = 0; array_el < 
+                cur_val.n_array_elements; array_el++)
         {
-            // TODO: Break out this Newton solver, if at all possible.
-            double guess = cur_val[comp];
-            const double rel_tol = 1e-9 * abs(cur_val[comp]);
+            double guess = cur_val[array_el];
+            const double rel_tol = 1e-9 * abs(cur_val[array_el]);
             for(int d = 0; d < dim; d++) 
             {
-                p[d] = fe_eval.quadrature_point(q)[d][comp];
+                p[d] = fe_eval.quadrature_point(q)[d][array_el];
             }
             for(unsigned int iter = 0; iter < iter_max; iter++)
             {
                 //Replace this with a generic fnc call.
                 iv = this->inv_visc->value(p, guess);
                 //Calculate the current value of the function.
-                // f_val = (guess - cur_val[comp]) + this->mu_dt[comp] * iv * cur_val[comp];
-                f_val = (guess - cur_val[comp]) + this->mu_dt[comp] * iv * cur_val[comp];
+                f_val = (1.5 * guess - 2 * cur_val[array_el] + 
+                            0.5 * this->old_val[array_el]) + 
+                    this->mu_dt[array_el] * iv * guess -
+                    this->mu_dt[array_el] * 
+                        this->old_grad_vel[this->component][array_el];
 
+                // std::cout << "Guess " << iter << ":" << guess << std::endl << 
+                //     "     with residual: " << f_val << std::endl <<
+                //     "     and tolerance: " << rel_tol << std::endl <<
+                //     "     and cur: " << cur_val[array_el] << std::endl <<
+                //     "     and old: " << this->old_val[array_el] << std::endl;
                 if ((abs(f_val) < rel_tol) || (abs(f_val) < abs_tol))
                 {
                     // std::cout << "Convergence!" << std::endl;
@@ -296,16 +319,17 @@ namespace viscosaur
                 //Replace this with a generic fnc call.
                 //Calculate the current derivative of the function.
                 ivd = this->inv_visc->strs_deriv(p, guess);
-                fp_val = 1 + this->mu_dt[comp] * (iv + guess * ivd);
-                // std::cout << "Guess " << iter << ":" << guess << std::endl << 
-                //     "     with residual: " << f_val << std::endl <<
-                //     "     and tolerance: " << rel_tol << std::endl;
+                fp_val = 1.5 + 
+                    this->mu_dt[array_el] * (iv + guess * ivd);
                 guess -= f_val / fp_val;
             }
-            output[comp] = guess;
+            output[array_el] = guess;
         }
         fe_eval.submit_value(output, q);
     }
+
+
+
     template <int dim, int fe_degree>
     void 
     CorrectionOp<dim, fe_degree>::
@@ -328,8 +352,9 @@ namespace viscosaur
          unsigned int q)
 
     {
-        // current.submit_value(current_value + 
-        //         mu_dt * grad_vel[this->component], q);
+        fe_eval.submit_value(cur_val + (2.0 / 3.0) * 
+                this->mu_dt * (grad_vel[this->component] -
+                    this->old_grad_vel[this->component]), q);
     }
 }
 #endif
