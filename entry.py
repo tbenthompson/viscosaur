@@ -30,7 +30,7 @@ def proc0_out(info):
 params = defaults.default_params()
 params['initial_adaptive_refines'] = 5
 params['max_grid_level'] = 9
-params['time_step'] = params['t_max'] / 1000.0
+params['time_step'] = params['t_max'] / 10.0
 
 # Clear the data directory if asked. The user is trusted to set the parameter
 # appropriately and not delete precious data
@@ -95,7 +95,7 @@ def run():
         strs_update.correction_step(soln)
         # Fix the output naming scheme
         filename = "solution-" + str(i) + "."
-        # soln.output(params['data_dir'], filename, vel)
+        soln.output(params['data_dir'], filename, vel)
 
 
         pd.start_refine(soln)
@@ -109,13 +109,17 @@ def run():
         i += 1
 
 
+#Actually run the main function
+# TODO: This would be unnecessary with proper custodian and warding of boost
+# python code
 run()
-# one_step_strs()
+
 if params['compress_data_dir']:
     archive_name = params['data_dir'].replace('/', '.')
     archive_name += datetime.datetime.now().strftime('%Y%m%d')
     archive_name += '.tar.gz'
     tar = tarfile.open(archive_name, "w:gz")
-    tar.add(params['data_dir'], arcname = archive_name)
+    tar.add(params['data_dir'])
     tar.close()
+
 proc0_out("From python: run complete")
