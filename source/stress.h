@@ -14,8 +14,7 @@ namespace viscosaur
     template <int dim> class Scheme;
     template <int dim, int fe_degree> class StressOp;
 
-    const unsigned int fe_degree = 2;
-    
+#define FE_DEGREE 2
     template <int dim>
     class Stress
     {
@@ -28,7 +27,7 @@ namespace viscosaur
                  dealii::parallel::distributed::Vector<double> &output,
                  Solution<dim> &soln,
                  unsigned int component,
-                 StressOp<dim, fe_degree> &op);
+                 StressOp<dim, FE_DEGREE> &op);
             void tentative_step(Solution<dim> &soln, Scheme<dim> &scheme);
             void correction_step(Solution<dim> &soln, Scheme<dim> &scheme);
         private:

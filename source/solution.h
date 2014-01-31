@@ -4,7 +4,6 @@
 #include <deal.II/lac/parallel_vector.h>
 #include <deal.II/lac/generic_linear_algebra.h>
 #include <deal.II/distributed/solution_transfer.h>
-#include "linear_algebra.h"
 
 namespace dealii
 {
@@ -20,6 +19,8 @@ namespace viscosaur
         public:
             Solution(ProblemData<dim> &p_pd);
 
+            void reinit();
+
             void apply_init_cond(dealii::Function<dim> &init_szx,
                                  dealii::Function<dim> &init_szy,
                                  dealii::Function<dim> &init_vel);
@@ -28,8 +29,7 @@ namespace viscosaur
                         std::string filename,
                         dealii::Function<dim> &vel) const;
 
-            void start_timestep(const unsigned int step_index,
-                                const double time);
+            void start_timestep();
 
             dealii::parallel::distributed::SolutionTransfer<dim, 
                 dealii::parallel::distributed::Vector<double> >*
@@ -54,8 +54,6 @@ namespace viscosaur
             dealii::parallel::distributed::Vector<double> poisson_soln;
             dealii::parallel::distributed::Vector<double> old_vel;
             dealii::parallel::distributed::Vector<double> old_vel_for_strs;
-            double time;
-            unsigned int step_index;
 
             ProblemData<dim>* pd;
     };

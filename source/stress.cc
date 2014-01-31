@@ -4,7 +4,7 @@
 #include "scheme.h"
 #include "stress_op.h"
 #include "problem_data.h"
-#include "velocity.h"
+#include "inv_visc.h"
 #include "solution.h"
 
 #include <deal.II/base/logstream.h>
@@ -39,45 +39,16 @@ namespace viscosaur
                         ProblemData<dim> &p_pd)
     {
         pd = &p_pd;
-        TimerOutput::Scope t(pd->computing_timer, "setup_stress");
-        double time_step = bp::extract<double>(pd->parameters["time_step"]);
 
         constraints = *pd->create_constraints();
         constraints.close();
 
-        typename MatrixFree<dim>::AdditionalData additional_data;
-        additional_data.mapping_update_flags = (update_gradients |
-                                          update_JxW_values |
-                                          update_quadrature_points);
-        additional_data.mpi_communicator = pd->mpi_comm;
 
-        //Needs to be one-dimensional
-        QGaussLobatto<1> quadrature (fe_degree+1);
-        matrix_free.reinit(pd->dof_handler, constraints,
-                                quadrature, additional_data);
-        matrix_free.initialize_dof_vector(soln.cur_szx);
-        soln.cur_szy.reinit(soln.cur_szx);
-        soln.old_szx.reinit(soln.cur_szx);
-        soln.old_szy.reinit(soln.cur_szx);
-        soln.old_old_szx.reinit(soln.cur_szx);
-        soln.old_old_szy.reinit(soln.cur_szx);
-        soln.tent_szx.reinit(soln.cur_szx);
-        soln.tent_szy.reinit(soln.cur_szx);
-        soln.cur_vel_for_strs.reinit(soln.cur_szx);
-        soln.cur_vel_for_strs.update_ghost_values();
-        soln.old_vel_for_strs.reinit(soln.cur_szx);
-        soln.old_vel_for_strs.update_ghost_values();
-
-        InvViscosity<dim>* inv_visc = new InvViscosity<dim>(*pd);
         //Make a vector of stress ops, so that degree can be flexible.
         //First check if the initialization takes a substantial amount of time.
         //TODO:Separate this out to the python layer. Maybe provide a "factory"
         //type system that produces 1st,2nd,3rd,4th order versions?
-        // t_step0 = new TentativeOp<dim, fe_degree>(matrix_free, time_step, 
-        //                                       *pd, *inv_visc);
         // t_step = new TentativeOp2<dim, fe_degree>(matrix_free, time_step, 
-        //                                       *pd, *inv_visc);
-        // c_step0 = new CorrectionOp<dim, fe_degree>(matrix_free, time_step, 
         //                                       *pd, *inv_visc);
         // c_step = new CorrectionOp2<dim, fe_degree>(matrix_free, time_step, 
         //                                       *pd, *inv_visc);
@@ -95,7 +66,7 @@ namespace viscosaur
                  parallel::distributed::Vector<double> &output,
                  Solution<dim> &soln,
                  unsigned int component,
-                 StressOp<dim, fe_degree> &op)
+                 StressOp<dim, FE_DEGREE> &op)
     {
         TimerOutput::Scope t(pd->computing_timer, "stress_step");
 
@@ -114,7 +85,7 @@ namespace viscosaur
     Stress<dim>::tentative_step(Solution<dim> &soln, 
                                 Scheme<dim> &scheme)
     {
-        StressOp<dim, fe_degree>* stepper = scheme.get_tentative_stepper();
+        StressOp<dim, FE_DEGREE>* stepper = scheme.get_tentative_stepper();
         generic_step(soln.old_szx, soln.tent_szx, soln, 0, *stepper);
         generic_step(soln.old_szy, soln.tent_szy, soln, 1, *stepper);
     }
@@ -124,7 +95,7 @@ namespace viscosaur
     Stress<dim>::correction_step(Solution<dim> &soln,
                                  Scheme<dim>& scheme)
     {
-        StressOp<dim, fe_degree>* stepper = scheme.get_correction_stepper();
+        StressOp<dim, FE_DEGREE>* stepper = scheme.get_correction_stepper();
         generic_step(soln.tent_szx, soln.cur_szx, soln, 0, *stepper);
         generic_step(soln.tent_szy, soln.cur_szy, soln, 1, *stepper);
     }

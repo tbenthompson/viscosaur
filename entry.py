@@ -29,9 +29,9 @@ def proc0_out(info):
 # Set up the parameters to be used.
 params = defaults.default_params()
 params['initial_adaptive_refines'] = 9
-params['max_grid_level'] = 15
+params['max_grid_level'] = 12
 params['t_max'] = 10.0 * defaults.secs_in_a_year
-params['time_step'] = params['t_max'] / 1.0
+params['time_step'] = params['t_max'] / 10.0
 
 # Clear the data directory if asked. The user is trusted to set the parameter
 # appropriately and not delete precious data
@@ -47,7 +47,8 @@ if params['clear_data_dir'] and (mpi_rank is 0):
 
 
 
-pd = vc.ProblemData2D(params)
+inv_visc = vc.InvViscosityTLA2D(params)
+pd = vc.ProblemData2D(params, inv_visc)
 # We must define the slip fnc outside the TLA constructor, otherwise
 # it appears to get deleted (maybe by python?)
 # TODO: Use boost python custodian and ward to maintain existence of some
@@ -65,31 +66,33 @@ exact_vel = vc.SimpleVelocity2D(tla)
 
 def run():
     soln = vc.Solution2D(pd)
-    vel_bc = vc.SimpleDeltaVelocity2D(tla, params['time_step'])
+    # vel_bc = vc.SimpleDeltaVelocity2D(tla, params['time_step'])
+    vel_bc = vc.SimpleVelocity2D(tla)
     vel_bc.set_t(params['time_step'])
 
 
     # Setup a 2D poisson solver.
     for i in range(params['initial_adaptive_refines']):
         strs_solver = vc.Stress2D(soln, pd)
-        vel_solver = vc.Velocity2D(soln, vel_bc, pd)
+        fwd_euler = vc.FwdEuler2D(pd)
+        vel_solver = vc.Velocity2D(soln, vel_bc, pd, fwd_euler)
         soln.apply_init_cond(init_szx, init_szy, init_vel)
-        # exact_vel.set_t(0.0)
-        # soln.output(params['data_dir'], 'inital_cond' + str(i) + '.',
-        #             exact_vel)
 
-        soln.start_timestep(1, params['time_step'])
-        strs_solver.tentative_step(soln)
-        vel_solver.step(soln)
+        soln.start_timestep()
+        strs_solver.tentative_step(soln, fwd_euler)
+        vel_solver.step(soln, fwd_euler)
         exact_vel.set_t(params['time_step'])
         soln.output(params['data_dir'], 'init_refinement_' + str(i) + '.',
                     exact_vel)
-        pd.start_refine(soln)
+        pd.start_refine(soln.current_velocity)
         pd.execute_refine()
+        soln.reinit()
 
     proc0_out("Done with first time step spatial adaptation.")
     strs_solver = vc.Stress2D(soln, pd)
-    vel_solver = vc.Velocity2D(soln, vel_bc, pd)
+    vel_solver = vc.Velocity2D(soln, vel_bc, pd, fwd_euler)
+    fwd_euler = vc.FwdEuler2D(pd)
+    soln.reinit()
     soln.apply_init_cond(init_szx, init_szy, init_vel)
     t = 0
     i = 1
@@ -98,31 +101,27 @@ def run():
         proc0_out("Solving for time = " + str(t / defaults.secs_in_a_year))
 
         vel_bc.set_t(t)
-        # vel.set_t(t)
 
-        # if i >= 2:
-        vel_solver.update_bc(vel_bc)
-        # else:
-            # vel_solver.update_bc(vel)
+        vel_solver.update_bc(vel_bc, fwd_euler)
 
-        soln.start_timestep(i, t)
-        strs_solver.tentative_step(soln)
-        vel_solver.step(soln)
-        strs_solver.correction_step(soln)
+        soln.start_timestep()
+        strs_solver.tentative_step(soln, fwd_euler)
+        vel_solver.step(soln, fwd_euler)
+        strs_solver.correction_step(soln, fwd_euler)
         # Fix the output naming scheme
         filename = "solution-" + str(i) + "."
         exact_vel.set_t(t)
         soln.output(params['data_dir'], filename, exact_vel)
 
 
-        pd.start_refine(soln)
+        pd.start_refine(soln.current_velocity)
         sol_trans = soln.start_refine()
         pd.execute_refine()
-        new_soln = vc.Solution2D(pd)
-        strs_solver = vc.Stress2D(new_soln, pd)
-        vel_solver = vc.Velocity2D(new_soln, vel_bc, pd)
-        new_soln.post_refine(sol_trans)
-        soln = new_soln
+        soln.reinit()
+        strs_solver = vc.Stress2D(soln, pd)
+        vel_solver = vc.Velocity2D(soln, vel_bc, pd, fwd_euler)
+        fwd_euler = vc.FwdEuler2D(pd)
+        soln.post_refine(sol_trans)
         i += 1
 
 

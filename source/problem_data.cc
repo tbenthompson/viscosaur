@@ -1,5 +1,5 @@
 #include "problem_data.h"
-#include "solution.h"
+#include "inv_visc.h"
 
 #include <deal.II/base/quadrature_lib.h>
 #include <deal.II/base/timer.h>
@@ -26,21 +26,25 @@ namespace viscosaur
     using namespace dealii;
     namespace bp = boost::python;
     template <int dim>
-    ProblemData<dim>::ProblemData(bp::dict &params):
+    ProblemData<dim>::ProblemData(bp::dict &params,
+                        InvViscosity<dim>* inv_visc):
         mpi_comm(MPI_COMM_WORLD),
         triangulation(mpi_comm,
                 typename Triangulation<dim>::MeshSmoothing
                 (Triangulation<dim>::smoothing_on_refinement |
                  Triangulation<dim>::smoothing_on_coarsening)),
-        dof_handler (triangulation),
-        fe (QGaussLobatto<1>(bp::extract<int>(parameters["fe_degree"]) + 1)),
-        pcout (std::cout, (Utilities::MPI::this_mpi_process(mpi_comm) == 0)),
-        computing_timer (pcout, TimerOutput::summary, TimerOutput::wall_times),
-        parameters (params),
-        quadrature(bp::extract<int>(parameters["fe_degree"]) + 1)
+        dof_handler(triangulation),
+        fe(QGaussLobatto<1>(bp::extract<int>(parameters["fe_degree"]) + 1)),
+        pcout(std::cout, (Utilities::MPI::this_mpi_process(mpi_comm) == 0)),
+        computing_timer(pcout, TimerOutput::summary, TimerOutput::wall_times),
+        parameters(params),
+        quadrature(bp::extract<int>(parameters["fe_degree"]) + 1),
+        one_d_quad(bp::extract<int>(parameters["fe_degree"]) + 1),
+        face_quad(bp::extract<int>(parameters["fe_degree"]) + 1)
     {
         init_mesh();
         init_dofs();
+        this->inv_visc = inv_visc;
     }
 
     template <int dim>
@@ -66,8 +70,31 @@ namespace viscosaur
         // Set the dofs that this process will need to perform solving
         DoFTools::extract_locally_relevant_dofs(dof_handler,
                 locally_relevant_dofs);
+        // Check the dealii faq for more information on dof handling in mpi 
+        // processes
         DoFTools::extract_locally_active_dofs(dof_handler,
                 locally_active_dofs);
+
+        // Create a constraints matrix that just contains the hanging node 
+        // constraints. We will copy this matrix later when we need to add other
+        // constraints like boundary conditions.
+        hanging_node_constraints.clear();
+        hanging_node_constraints.reinit(locally_relevant_dofs);
+        DoFTools::make_hanging_node_constraints(dof_handler, 
+                                                hanging_node_constraints);
+
+        // Also initialize the matrix free objects for any explicit operations
+        // we may wish to perform.
+        typename MatrixFree<dim>::AdditionalData additional_data;
+        additional_data.mapping_update_flags = (update_values |
+                                          update_gradients |
+                                          update_JxW_values |
+                                          update_quadrature_points);
+        additional_data.mpi_communicator = mpi_comm;
+
+        //Needs to be one-dimensional
+        matrix_free.reinit(dof_handler, hanging_node_constraints,
+                           one_d_quad, additional_data);
     }
 
     template <int dim>
@@ -75,16 +102,9 @@ namespace viscosaur
     ProblemData<dim>::
     create_constraints()
     {
-        // Create a constraints matrix that just contains the hanging node 
-        // constraints. We will copy this matrix later when we need to add other
-        // constraints like boundary conditions.
-        ConstraintMatrix* hanging_node_constraints = new
-            ConstraintMatrix();
-        hanging_node_constraints->clear();
-        hanging_node_constraints->reinit(locally_relevant_dofs);
-        DoFTools::make_hanging_node_constraints (dof_handler, 
-                                                 *hanging_node_constraints);
-        return hanging_node_constraints;
+        // Return a constraint matrix the just contains hanging nodes,
+        // no boundary conditions included.
+        return new ConstraintMatrix(hanging_node_constraints);
     }
 
     template <int dim>
@@ -145,7 +165,7 @@ namespace viscosaur
     template <int dim>
     void 
     ProblemData<dim>::
-    start_refine(Solution<dim> &soln)
+    start_refine(parallel::distributed::Vector<double> &refinement_measure)
     {
         TimerOutput::Scope t(computing_timer, "refine");
 
@@ -157,12 +177,12 @@ namespace viscosaur
         KellyErrorEstimator<dim>::estimate (dof_handler,
                 QGaussLobatto<dim - 1>(fe_d + 1),
                 typename FunctionMap<dim>::type(),
-                soln.cur_vel,
+                refinement_measure,
                 estimated_error_per_cell);
 
         //Print the local L2 error estimate.
         double l2_error = estimated_error_per_cell.l2_norm();
-        double l2_soln = soln.cur_vel.l2_norm();
+        double l2_soln = refinement_measure.l2_norm();
         double percent_error = l2_error / l2_soln;
         std::cout << "Processor: " + 
             Utilities::int_to_string(
@@ -184,7 +204,8 @@ namespace viscosaur
                     estimated_error_per_cell,
                     refine_frac, coarse_frac);
 
-        // Don't overrefine or underrefine. 
+        // Don't overrefine or underrefine. Clear all underrefined or 
+        // overrefinings
         if (triangulation.n_levels() > max_grid_level)
             for (typename Triangulation<dim>::active_cell_iterator
                  cell = triangulation.begin_active(max_grid_level);

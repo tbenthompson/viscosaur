@@ -10,6 +10,9 @@
 
 #include "analytic.h"
 #include "velocity.h"
+#include "inv_visc.h"
+#include "scheme.h"
+#include "fwd_euler.h"
 #include "problem_data.h"
 #include "control.h"
 #include "stress.h"
@@ -36,16 +39,15 @@ BOOST_PYTHON_MODULE(viscosaur)
     /* Expose some dealii classes.
      */
     class_<dealii::Point<2> >("Point2D", init<double, double>());
-    class_<dealii::Point<3> >("Point3D", init<double, double, double>());
     class_<dealii::Function<2>, boost::noncopyable>("Function2D", no_init)
         .def("value", pure_virtual(&dealii::Function<2>::value));
-    class_<dealii::Function<3>, boost::noncopyable>("Function3D", no_init)
-        .def("value", pure_virtual(&dealii::Function<3>::value));
-    class_<dealii::PETScWrappers::MPI::Vector>("PETScWrappers", no_init);
+    class_<dealii::PETScWrappers::MPI::Vector>("PETScVector", no_init);
     class_<dealii::DoFHandler<2>, boost::noncopyable>("DoFHander2D", no_init);
+    class_<dealii::parallel::distributed::Vector<double> >("MPIVector", no_init);
     class_<dealii::parallel::distributed::SolutionTransfer<2,
             dealii::parallel::distributed::Vector<double> >, boost::noncopyable>
-                ("SolutionTransfer2D", no_init);
+            ("SolutionTransfer2D", no_init);
+    
 
     /* Basic viscosaur functions.
      */
@@ -109,34 +111,37 @@ BOOST_PYTHON_MODULE(viscosaur)
     class_<vc::Solution<2>, boost::noncopyable>("Solution2D", 
         init<vc::ProblemData<2>&>())
         .def("apply_init_cond", &vc::Solution<2>::apply_init_cond)
+        .def("reinit", &vc::Solution<2>::reinit)
         .def("output", &vc::Solution<2>::output)
         .def("start_timestep", &vc::Solution<2>::start_timestep)
         .def("start_refine", &vc::Solution<2>::start_refine,
                 return_value_policy<manage_new_object>())
-        .def("post_refine", &vc::Solution<2>::post_refine);
+        .def("post_refine", &vc::Solution<2>::post_refine)
+        .def_readonly("current_velocity", &vc::Solution<2>::cur_vel);
 
-    /* Expose the Velocity solver. I separate the 2D and 3D because exposing
+    // double (vc::InvViscosity<2>::*f_value)(const dealii::Point<2>&,
+    //                                        const double)= &vc::InvViscosity<2>::value;
+    class_<vc::InvViscosity<2>, boost::noncopyable>("InvViscosity2D", no_init);
+    class_<vc::InvViscosityTLA<2>, bases<vc::InvViscosity<2> > >(
+            "InvViscosityTLA2D", init<dict&>())
+        .def("value", &vc::InvViscosityTLA<2>::value)
+        .def("strs_deriv", &vc::InvViscosityTLA<2>::strs_deriv);
+    /* Expose the Velocity solver. I separate the 2D and 3D because exposing    
      * the templating to python is difficult.
      * boost::noncopyable is required, because the copy constructor of some
      * of the private members of Velocity are private
      */ 
 
     class_<vc::ProblemData<2>, boost::noncopyable>("ProblemData2D",
-                                                    init<dict&>()).
+            init<dict&, vc::InvViscosity<2>*>()).
         def("start_refine", &vc::ProblemData<2>::start_refine).
         def("execute_refine", &vc::ProblemData<2>::execute_refine);
-    class_<vc::ProblemData<3>, boost::noncopyable>("ProblemData3D",
-                                                    init<dict&>());
 
     class_<vc::Velocity<2>, boost::noncopyable>("Velocity2D", 
         init<vc::Solution<2>&, dealii::Function<2>&,
-             vc::ProblemData<2>&>())
+             vc::ProblemData<2>&, vc::Scheme<2>&>())
         .def("step", &vc::Velocity<2>::step)
         .def("update_bc", &vc::Velocity<2>::update_bc);
-    class_<vc::Velocity<3>, boost::noncopyable>("Velocity3D", 
-        init<vc::Solution<3>&, dealii::Function<3>&,
-             vc::ProblemData<3>&>())
-        .def("step", &vc::Velocity<3>::step);
 
     /* Stress updater.
      */
@@ -144,5 +149,9 @@ BOOST_PYTHON_MODULE(viscosaur)
         init<vc::Solution<2>&, vc::ProblemData<2>&>())
         .def("tentative_step", &vc::Stress<2>::tentative_step)
         .def("correction_step", &vc::Stress<2>::correction_step);
+
+    class_<vc::Scheme<2>, boost::noncopyable>("Scheme2D", no_init);
+    class_<vc::FwdEuler<2>, bases<vc::Scheme<2> > >("FwdEuler2D", 
+            init<vc::ProblemData<2>&>());
 }
 

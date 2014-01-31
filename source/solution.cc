@@ -14,7 +14,38 @@ namespace viscosaur
     Solution<dim>::Solution(ProblemData<dim> &p_pd)
     {
         pd = &p_pd;
+        reinit();
+    }
 
+
+    template<int dim>
+    void
+    Solution<dim>::
+    reinit()
+    {
+        cur_vel.reinit(pd->locally_owned_dofs,
+            pd->locally_relevant_dofs, pd->mpi_comm);
+        poisson_soln.reinit(pd->locally_owned_dofs,
+            pd->locally_relevant_dofs, pd->mpi_comm);
+        old_vel.reinit(pd->locally_owned_dofs,
+                pd->locally_relevant_dofs, pd->mpi_comm);
+
+        pd->matrix_free.initialize_dof_vector(cur_szx);
+        cur_szy.reinit(cur_szx);
+        old_szx.reinit(cur_szx);
+        old_szy.reinit(cur_szx);
+        old_old_szx.reinit(cur_szx);
+        old_old_szy.reinit(cur_szx);
+        tent_szx.reinit(cur_szx);
+        tent_szy.reinit(cur_szx);
+        cur_vel_for_strs.reinit(cur_szx);
+        old_vel_for_strs.reinit(cur_szx);
+
+        old_old_szx.update_ghost_values();
+        old_old_szy.update_ghost_values();
+        old_vel.update_ghost_values();
+        cur_vel_for_strs.update_ghost_values();
+        old_vel_for_strs.update_ghost_values();
     }
 
     template <int dim>
@@ -28,17 +59,19 @@ namespace viscosaur
         VectorTools::interpolate(pd->dof_handler, init_szx, cur_szx);
         VectorTools::interpolate(pd->dof_handler, init_szy, cur_szy);
         VectorTools::interpolate(pd->dof_handler, init_vel, cur_vel);
+        old_szx.update_ghost_values();
+        old_szy.update_ghost_values();
+        cur_szx.update_ghost_values();
+        cur_szy.update_ghost_values();
+        cur_vel.update_ghost_values();
         cur_vel_for_strs = cur_vel;
     }
 
     template <int dim>
     void
     Solution<dim>::
-    start_timestep(const unsigned int step_index,
-                   const double time)
+    start_timestep()
     {
-        this->step_index = step_index;
-        this->time = time;
         //Flip the solns to retain the old soln.
         old_old_szx.swap(old_szx);
         old_old_szy.swap(old_szy);
@@ -84,7 +117,7 @@ namespace viscosaur
         DataOut<dim> data_out;
         data_out.attach_dof_handler(pd->dof_handler);
         data_out.add_data_vector(cur_vel, "vel");
-        data_out.add_data_vector(poisson_soln, "poisson_soln");
+        // data_out.add_data_vector(poisson_soln, "poisson_soln");
         data_out.add_data_vector(tent_szx, "tentative_szx");
         data_out.add_data_vector(tent_szy, "tentative_szy");
         data_out.add_data_vector(cur_szx, "szx");

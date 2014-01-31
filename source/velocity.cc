@@ -1,7 +1,7 @@
 #include "velocity.h"
 #include "problem_data.h"
 #include "solution.h"
-#include "analytic.h"
+#include "scheme.h"
 
 #include <deal.II/base/quadrature_lib.h>
 #include <deal.II/base/function.h>
@@ -42,21 +42,14 @@ namespace viscosaur
     namespace bp = boost::python;
 
     template <int dim>
-    InvViscosity<dim>::InvViscosity(ProblemData<dim> &p_pd){
-        layer_depth = 
-            bp::extract<double>(p_pd.parameters["fault_depth"]);
-        inv_viscosity = 1.0 /
-            bp::extract<double>(p_pd.parameters["viscosity"]);
-    }
-
-    template <int dim>
     Velocity<dim>::Velocity(Solution<dim> &soln,
                           dealii::Function<dim> &bc,
-                          ProblemData<dim> &p_pd)
+                          ProblemData<dim> &p_pd,
+                          Scheme<dim> &sch)
     {
         pd = &p_pd;
         pd->pcout << "Setting up the Velocity solver." << std::endl;
-        setup_system(bc, soln);
+        setup_system(bc, soln, sch);
         // assemble_matrix(soln);
         pd->pcout << "   Number of active cells:       "
             << pd->triangulation.n_global_active_cells()
@@ -69,18 +62,14 @@ namespace viscosaur
 
 
     template <int dim>
-    void Velocity<dim>::setup_system(Function<dim> &bc, Solution<dim> &soln)
+    void Velocity<dim>::setup_system(Function<dim> &bc, Solution<dim> &soln,
+            Scheme<dim> &sch)
     {
         //The theme in this function is that only the locally relevant or 
         //locally owned dofs will be made known to any given processor.
         TimerOutput::Scope t(pd->computing_timer, "setup");
 
-
-        // Constrain hanging nodes and boundary conditions.
-        hanging_node_constraints = *pd->create_constraints();
-        hanging_node_constraints.close();
-
-        update_bc(bc);
+        update_bc(bc, sch);
         CompressedSimpleSparsityPattern* csp = 
             pd->create_sparsity_pattern(constraints);
         // Initialize the matrix, rhs and solution vectors.
@@ -95,26 +84,21 @@ namespace viscosaur
                              pd->mpi_comm);
         //GET RID OF MANUAL POINTER HANDLING!
         delete csp;
-        soln.cur_vel.reinit(pd->locally_owned_dofs,
-                pd->locally_relevant_dofs, pd->mpi_comm);
-        soln.poisson_soln.reinit(pd->locally_owned_dofs,
-                pd->locally_relevant_dofs, pd->mpi_comm);
-        soln.old_vel.reinit(pd->locally_owned_dofs,
-                pd->locally_relevant_dofs, pd->mpi_comm);
     }
 
     template <int dim>
-    void Velocity<dim>::update_bc(Function<dim> &bc)
+    void Velocity<dim>::update_bc(Function<dim> &bc, Scheme<dim> &sch)
     {
         constraints = *pd->create_constraints();
+        Function<dim>* encapsulated_bc = sch.handle_bc(bc);
         VectorTools::interpolate_boundary_values(pd->dof_handler,
-                0, bc, constraints);
+                0, *encapsulated_bc, constraints);
+        // VectorTools::interpolate_boundary_values(pd->dof_handler,
+        //         1, *encapsulated_bc, constraints);
         VectorTools::interpolate_boundary_values(pd->dof_handler,
-                1, bc, constraints);
+                2, *encapsulated_bc, constraints);
         VectorTools::interpolate_boundary_values(pd->dof_handler,
-                2, bc, constraints);
-        VectorTools::interpolate_boundary_values(pd->dof_handler,
-                3, bc, constraints);
+                3, *encapsulated_bc, constraints);
         constraints.close();
     }
 
@@ -122,7 +106,7 @@ namespace viscosaur
     template <int dim>
     void 
     Velocity<dim>::
-    assemble_matrix(Solution<dim> &soln) 
+    assemble_matrix(Solution<dim> &soln, Scheme<dim> &sch)
     { 
         TimerOutput::Scope t(pd->computing_timer, "assem_mat");
         FEValues<dim> fe_values(pd->fe, pd->quadrature, 
@@ -145,13 +129,8 @@ namespace viscosaur
             bp::extract<double>(pd->parameters["shear_modulus"]);
         const double time_step = 
             bp::extract<double>(pd->parameters["time_step"]);
-        double numer = 1.5;
-        // if (soln.step_index == 1)
-        // {
-        //     std::cout << "STEP1" << std::endl;
-        //     numer = 1.0;
-        // }
-        const double factor = numer / (shear_modulus * time_step);
+        const double factor = sch.poisson_rhs_factor() / 
+            (shear_modulus * time_step);
 
         std::vector<Tensor<1, dim> > Szxgrad(n_q_points);
         std::vector<Tensor<1, dim> > Szygrad(n_q_points);
@@ -212,17 +191,17 @@ namespace viscosaur
     template <int dim>
     void 
     Velocity<dim>::
-    assemble_rhs(Solution<dim> &soln) 
+    assemble_rhs(Solution<dim> &soln, Scheme<dim> &sch)
     { 
         // I should separate matrix and rhs construction so they are 
         // independent. But, wait for the moment, not necessary!
-        assemble_matrix(soln);
+        assemble_matrix(soln, sch);
     }
 
 
 
     template <int dim>
-    void Velocity<dim>::solve(Solution<dim> &soln)
+    void Velocity<dim>::solve(Solution<dim> &soln, Scheme<dim> &sch)
     {
         TimerOutput::Scope t(pd->computing_timer, "solve");
         LA::MPI::Vector
@@ -254,26 +233,25 @@ namespace viscosaur
         constraints.distribute(completely_distributed_solution);
 
         //TODO: BAD!!!!
-        soln.poisson_soln.reinit(soln.cur_vel);
-        soln.poisson_soln = completely_distributed_solution;
-        // if (soln.step_index == 1)
-        // {
-        //     soln.cur_vel = temp;
-        // }
-        // else
-        // {
-            soln.cur_vel = soln.old_vel;
-            soln.cur_vel += soln.poisson_soln;
-        // }
+        sch.handle_poisson_soln(soln, completely_distributed_solution);
+        // // if (soln.step_index == 1)
+        // // {
+        // //     soln.cur_vel = temp;
+        // // }
+        // // else
+        // // {
+        //     soln.cur_vel = soln.old_vel;
+        //     soln.cur_vel += soln.poisson_soln;
+        // // }
         soln.cur_vel_for_strs = soln.cur_vel;
     }
 
 
     template <int dim>
-    void Velocity<dim>::step(Solution<dim> &soln)
+    void Velocity<dim>::step(Solution<dim> &soln, Scheme<dim> &sch)
     {
-        assemble_rhs(soln);
-        solve(soln);
+        assemble_rhs(soln, sch);
+        solve(soln, sch);
     }
 
     // ESSENTIAL: explicity define the template types we will use.
@@ -281,6 +259,4 @@ namespace viscosaur
     // is ugly!
     template class Velocity<2>;
     template class Velocity<3>;
-    template class InvViscosity<2>;
-    template class InvViscosity<3>;
 }

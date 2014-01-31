@@ -26,21 +26,21 @@
 
 
 
-    "status": "closed", 
+    "status": "open", 
 
 
 
 
 
 
-    "summary": "Finish the dealii operator= addition.", 
+    "summary": "Add namespace for each analytic problem.", 
 
 
 
 
 
 
-    "time": "Tue, 28 Jan 2014 01:04:10 +0000"
+    "time": "Thu, 30 Jan 2014 15:43:13 +0000"
 
 
 
