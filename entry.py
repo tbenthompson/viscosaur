@@ -74,14 +74,14 @@ def run():
     # Setup a 2D poisson solver.
     if not params["load_mesh"]:
         for i in range(params['initial_adaptive_refines']):
+            scheme = vc.FwdEuler2D(pd)
             strs_solver = vc.Stress2D(soln, pd)
-            fwd_euler = vc.FwdEuler2D(pd)
-            vel_solver = vc.Velocity2D(soln, vel_bc, pd, fwd_euler)
+            vel_solver = vc.Velocity2D(soln, vel_bc, pd, scheme)
             soln.apply_init_cond(init_szx, init_szy, init_vel)
 
             soln.start_timestep()
-            strs_solver.tentative_step(soln, fwd_euler)
-            vel_solver.step(soln, fwd_euler)
+            strs_solver.tentative_step(soln, scheme)
+            vel_solver.step(soln, scheme)
             exact_vel.set_t(params['time_step'])
             soln.output(params['data_dir'], 'init_refinement_' + str(i) + '.',
                         exact_vel)
@@ -92,25 +92,26 @@ def run():
         pd.save_mesh("saved_mesh.msh")
 
 
-    fwd_euler = vc.FwdEuler2D(pd)
+    scheme = vc.FwdEuler2D(pd)
     strs_solver = vc.Stress2D(soln, pd)
-    vel_solver = vc.Velocity2D(soln, vel_bc, pd, fwd_euler)
+    vel_solver = vc.Velocity2D(soln, vel_bc, pd, scheme)
     soln.reinit()
     soln.apply_init_cond(init_szx, init_szy, init_vel)
     t = 0
     i = 1
     while t < params['t_max']:
         t += params['time_step']
-        proc0_out("Solving for time = " + str(t / defaults.secs_in_a_year))
+        proc0_out("\n\nSolving for time = " + \
+                  str(t / defaults.secs_in_a_year) + " \n")
 
         vel_bc.set_t(t)
 
-        vel_solver.update_bc(vel_bc, fwd_euler)
+        vel_solver.update_bc(vel_bc, scheme)
 
         soln.start_timestep()
-        strs_solver.tentative_step(soln, fwd_euler)
-        vel_solver.step(soln, fwd_euler)
-        strs_solver.correction_step(soln, fwd_euler)
+        strs_solver.tentative_step(soln, scheme)
+        vel_solver.step(soln, scheme)
+        strs_solver.correction_step(soln, scheme)
         # Fix the output naming scheme
         filename = "solution-" + str(i) + "."
         exact_vel.set_t(t)
@@ -120,10 +121,10 @@ def run():
         pd.start_refine(soln.current_velocity)
         sol_trans = soln.start_refine()
         pd.execute_refine()
-        soln.reinit()
+        scheme = vc.BDFTwo2D(pd)
         strs_solver = vc.Stress2D(soln, pd)
-        vel_solver = vc.Velocity2D(soln, vel_bc, pd, fwd_euler)
-        fwd_euler = vc.FwdEuler2D(pd)
+        vel_solver = vc.Velocity2D(soln, vel_bc, pd, scheme)
+        soln.reinit()
         soln.post_refine(sol_trans)
         i += 1
 

@@ -32,7 +32,7 @@ def default_params():
 
     # time stepping
     defaults['t_max'] = 100.0 * secs_in_a_year
-    defaults['time_step'] = defaults['t_max'] / 120.0
+    defaults['time_step'] = defaults['t_max'] / 100.0
 
     # Clears the data directory at the beginning of computation.
     defaults['clear_data_dir'] = True
