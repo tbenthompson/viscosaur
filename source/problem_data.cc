@@ -42,7 +42,14 @@ namespace viscosaur
         one_d_quad(bp::extract<int>(parameters["fe_degree"]) + 1),
         face_quad(bp::extract<int>(parameters["fe_degree"]) + 1)
     {
-        init_mesh();
+        const bool should_load_mesh = bp::extract<bool>(parameters["load_mesh"]);
+        if (should_load_mesh)
+        {
+            load_mesh();
+        } else
+        {
+            generate_mesh();
+        }
         init_dofs();
         this->inv_visc = inv_visc;
     }
@@ -126,9 +133,16 @@ namespace viscosaur
     }
 
 
+    template <int dim>
+    void ProblemData<dim>::load_mesh()
+    {
+        const std::string filename = bp::extract<std::string>(
+                parameters["mesh_filename"]);
+        triangulation.load(filename.c_str());
+    }
 
     template <int dim>
-    void ProblemData<dim>::init_mesh()
+    void ProblemData<dim>::generate_mesh()
     {
         Point<dim> min = bp::extract<Point<dim> >(parameters["min_corner"]);
         Point<dim> max = bp::extract<Point<dim> >(parameters["max_corner"]);

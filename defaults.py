@@ -14,6 +14,10 @@ def default_params():
     # Polynomial degree of the elements.
     defaults['fe_degree'] = 2;
 
+    # Should we load a mesh or create a coarse version and refine it?
+    defaults["load_mesh"] = False
+    defaults["mesh_filename"] = None
+
     # How many times to isotropically refine the grid initially.
     defaults['initial_isotropic_refines'] = 3
     defaults['initial_adaptive_refines'] = 10

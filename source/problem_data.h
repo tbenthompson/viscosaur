@@ -36,7 +36,8 @@ namespace viscosaur
             ProblemData(boost::python::dict &params,
                         InvViscosity<dim>* inv_visc);
             ~ProblemData();
-            void init_mesh();
+            void generate_mesh();
+            void load_mesh();
             void init_dofs();
             void start_refine(
                     dealii::parallel::distributed::Vector<double> &soln);
