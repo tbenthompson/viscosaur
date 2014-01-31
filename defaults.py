@@ -15,8 +15,8 @@ def default_params():
     defaults['fe_degree'] = 2;
 
     # Should we load a mesh or create a coarse version and refine it?
-    defaults["load_mesh"] = False
-    defaults["mesh_filename"] = None
+    defaults["load_mesh"] = True
+    defaults["mesh_filename"] = 'saved_mesh.msh'
 
     # How many times to isotropically refine the grid initially.
     defaults['initial_isotropic_refines'] = 3

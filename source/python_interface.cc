@@ -137,9 +137,10 @@ BOOST_PYTHON_MODULE(viscosaur)
      */ 
 
     class_<vc::ProblemData<2>, boost::noncopyable>("ProblemData2D",
-            init<dict&, vc::InvViscosity<2>*>()).
-        def("start_refine", &vc::ProblemData<2>::start_refine).
-        def("execute_refine", &vc::ProblemData<2>::execute_refine);
+            init<dict&, vc::InvViscosity<2>*>())
+        .def("start_refine", &vc::ProblemData<2>::start_refine)
+        .def("execute_refine", &vc::ProblemData<2>::execute_refine)
+        .def("save_mesh", &vc::ProblemData<2>::save_mesh);
 
     class_<vc::Velocity<2>, boost::noncopyable>("Velocity2D", 
         init<vc::Solution<2>&, vc::BoundaryCond<2>&,

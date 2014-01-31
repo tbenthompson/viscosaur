@@ -42,13 +42,16 @@ namespace viscosaur
         one_d_quad(bp::extract<int>(parameters["fe_degree"]) + 1),
         face_quad(bp::extract<int>(parameters["fe_degree"]) + 1)
     {
-        const bool should_load_mesh = bp::extract<bool>(parameters["load_mesh"]);
+        const bool should_load_mesh = 
+            bp::extract<bool>(parameters["load_mesh"]);
+        //Even if we load the mesh, we need the basic coarse version to start
+        generate_mesh();
         if (should_load_mesh)
         {
             load_mesh();
         } else
         {
-            generate_mesh();
+            initial_refinement();
         }
         init_dofs();
         this->inv_visc = inv_visc;
@@ -132,6 +135,11 @@ namespace viscosaur
         return csp;
     }
 
+    template <int dim>
+    void ProblemData<dim>::save_mesh(const std::string &filename)
+    {
+        triangulation.save(filename.c_str());
+    }
 
     template <int dim>
     void ProblemData<dim>::load_mesh()
@@ -167,7 +175,11 @@ namespace viscosaur
                                                   min,
                                                   max,
                                                   true);
-        // GridGenerator::hyper_cube (pd->triangulation);
+    }
+
+    template <int dim>
+    void ProblemData<dim>::initial_refinement()
+    {
         // Isotropically refine a few times.
         int initial_isotropic_refines = bp::extract<int>
             (parameters["initial_isotropic_refines"]);

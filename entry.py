@@ -72,26 +72,29 @@ def run():
 
 
     # Setup a 2D poisson solver.
-    for i in range(params['initial_adaptive_refines']):
-        strs_solver = vc.Stress2D(soln, pd)
-        fwd_euler = vc.FwdEuler2D(pd)
-        vel_solver = vc.Velocity2D(soln, vel_bc, pd, fwd_euler)
-        soln.apply_init_cond(init_szx, init_szy, init_vel)
+    if not params["load_mesh"]:
+        for i in range(params['initial_adaptive_refines']):
+            strs_solver = vc.Stress2D(soln, pd)
+            fwd_euler = vc.FwdEuler2D(pd)
+            vel_solver = vc.Velocity2D(soln, vel_bc, pd, fwd_euler)
+            soln.apply_init_cond(init_szx, init_szy, init_vel)
 
-        soln.start_timestep()
-        strs_solver.tentative_step(soln, fwd_euler)
-        vel_solver.step(soln, fwd_euler)
-        exact_vel.set_t(params['time_step'])
-        soln.output(params['data_dir'], 'init_refinement_' + str(i) + '.',
-                    exact_vel)
-        pd.start_refine(soln.current_velocity)
-        pd.execute_refine()
-        soln.reinit()
+            soln.start_timestep()
+            strs_solver.tentative_step(soln, fwd_euler)
+            vel_solver.step(soln, fwd_euler)
+            exact_vel.set_t(params['time_step'])
+            soln.output(params['data_dir'], 'init_refinement_' + str(i) + '.',
+                        exact_vel)
+            pd.start_refine(soln.current_velocity)
+            pd.execute_refine()
+            soln.reinit()
+        proc0_out("Done with first time step spatial adaptation.")
+        pd.save_mesh("saved_mesh.msh")
 
-    proc0_out("Done with first time step spatial adaptation.")
+
+    fwd_euler = vc.FwdEuler2D(pd)
     strs_solver = vc.Stress2D(soln, pd)
     vel_solver = vc.Velocity2D(soln, vel_bc, pd, fwd_euler)
-    fwd_euler = vc.FwdEuler2D(pd)
     soln.reinit()
     soln.apply_init_cond(init_szx, init_szy, init_vel)
     t = 0

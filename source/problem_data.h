@@ -36,15 +36,18 @@ namespace viscosaur
             ProblemData(boost::python::dict &params,
                         InvViscosity<dim>* inv_visc);
             ~ProblemData();
-            void generate_mesh();
-            void load_mesh();
-            void init_dofs();
             void start_refine(
                     dealii::parallel::distributed::Vector<double> &soln);
             void execute_refine();
             dealii::CompressedSimpleSparsityPattern* create_sparsity_pattern(
                     dealii::ConstraintMatrix &constraints);
             dealii::ConstraintMatrix* create_constraints();
+
+            void generate_mesh();
+            void initial_refinement();
+            void save_mesh(const std::string &filename);
+            void load_mesh();
+            void init_dofs();
 
             boost::python::dict           parameters;
             MPI_Comm                      mpi_comm;
