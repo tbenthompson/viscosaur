@@ -1,5 +1,6 @@
 #ifndef __viscosaur_scheme_h
 #define __viscosaur_scheme_h
+#include <memory>
 namespace dealii
 {
     template <int dim> class Function;
@@ -14,6 +15,8 @@ namespace dealii
 namespace viscosaur
 {
     template <int dim, int fe_degree> class StressOp;
+    template <int dim> class BoundaryCond;
+    template <int dim> class ProblemData;
 
 
     #define FE_DEGREE 2
@@ -21,6 +24,10 @@ namespace viscosaur
     class Scheme
     {
         public:
+            Scheme(ProblemData<dim> &p_pd)
+            {
+                pd = &p_pd;
+            }
             virtual StressOp<dim, FE_DEGREE>* get_tentative_stepper()
             {
                 return this->tent_op;
@@ -33,10 +40,11 @@ namespace viscosaur
             virtual void handle_poisson_soln(Solution<dim> &soln,
                 dealii::PETScWrappers::MPI::Vector& poisson_soln) const
                 = 0;     
-            virtual dealii::Function<dim>* handle_bc(dealii::Function<dim> &bc)
+            virtual BoundaryCond<dim>* handle_bc(BoundaryCond<dim> &bc)
                     const = 0;
             StressOp<dim, FE_DEGREE>* tent_op;
             StressOp<dim, FE_DEGREE>* corr_op;
+            ProblemData<dim>* pd;
     };
 
 }

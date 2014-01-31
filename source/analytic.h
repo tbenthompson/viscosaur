@@ -9,6 +9,7 @@
 #include <deal.II/base/utilities.h>
 #include "linear_algebra.h"
 #include "problem_data.h"
+#include "boundary_cond.h"
 
 namespace boost 
 {
@@ -174,59 +175,22 @@ namespace viscosaur
     };
 
     template <int dim>
-    class SimpleVelocity: public dealii::Function<dim>
+    class SimpleVelocity: public BoundaryCond<dim>
     {
         public:
-            SimpleVelocity(TwoLayerAnalytic &p_tla): 
-                dealii::Function<dim>(1)
+            SimpleVelocity(TwoLayerAnalytic &p_tla):
+                BoundaryCond<dim>()
             {
                 tla = &p_tla;
-                t = 0;
             } 
-
-            void set_t(double p_t)
-            {
-                t = p_t;
-            }
 
             virtual double value (const dealii::Point<dim>   &p,
                                   const unsigned int  component) const
             {
-                return tla->simple_velocity(p(0), p(1), t);
+                return tla->simple_velocity(p(0), p(1), this->t_);
             }
         private:
             TwoLayerAnalytic* tla;
-            double t;
-    };
-
-    template <int dim>
-    class SimpleDeltaVelocity: public dealii::Function<dim>
-    {
-        public:
-            SimpleDeltaVelocity(
-                    TwoLayerAnalytic &p_tla, const double time_step):
-                dealii::Function<dim>(1)
-            {
-                tla = &p_tla;
-                t = 0;
-                this->time_step = time_step;
-            } 
-
-            void set_t(double p_t)
-            {
-                t = p_t;
-            }
-
-            virtual double value (const dealii::Point<dim>   &p,
-                                  const unsigned int  component) const
-            {
-                return (tla->simple_velocity(p(0), p(1), t) -
-                        tla->simple_velocity(p(0), p(1), t - time_step));
-            }
-        private:
-            TwoLayerAnalytic* tla;
-            double t;
-            double time_step;
     };
 }
 #endif

@@ -41,7 +41,8 @@ namespace viscosaur
     class FwdEuler: public Scheme<dim>
     {
         public:
-            FwdEuler(ProblemData<dim> &p_pd)
+            FwdEuler(ProblemData<dim> &p_pd):
+                Scheme<dim>(p_pd)
             {
                 //init tent_op                
                 this->tent_op = new FwdEulerTentOp<dim, FE_DEGREE>(p_pd);
@@ -61,7 +62,7 @@ namespace viscosaur
                 soln.cur_vel = soln.poisson_soln; 
             }
 
-            virtual dealii::Function<dim>* handle_bc(dealii::Function<dim> &bc)
+            virtual BoundaryCond<dim>* handle_bc(BoundaryCond<dim> &bc)
                 const
             {
                 return &bc; 

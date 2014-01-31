@@ -2,6 +2,7 @@
 #include "problem_data.h"
 #include "solution.h"
 #include "scheme.h"
+#include "boundary_cond.h"
 
 #include <deal.II/base/quadrature_lib.h>
 #include <deal.II/base/function.h>
@@ -43,7 +44,7 @@ namespace viscosaur
 
     template <int dim>
     Velocity<dim>::Velocity(Solution<dim> &soln,
-                          dealii::Function<dim> &bc,
+                          BoundaryCond<dim> &bc,
                           ProblemData<dim> &p_pd,
                           Scheme<dim> &sch)
     {
@@ -62,7 +63,7 @@ namespace viscosaur
 
 
     template <int dim>
-    void Velocity<dim>::setup_system(Function<dim> &bc, Solution<dim> &soln,
+    void Velocity<dim>::setup_system(BoundaryCond<dim> &bc, Solution<dim> &soln,
             Scheme<dim> &sch)
     {
         //The theme in this function is that only the locally relevant or 
@@ -87,7 +88,7 @@ namespace viscosaur
     }
 
     template <int dim>
-    void Velocity<dim>::update_bc(Function<dim> &bc, Scheme<dim> &sch)
+    void Velocity<dim>::update_bc(BoundaryCond<dim> &bc, Scheme<dim> &sch)
     {
         constraints = *pd->create_constraints();
         Function<dim>* encapsulated_bc = sch.handle_bc(bc);

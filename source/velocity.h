@@ -25,6 +25,7 @@ namespace viscosaur
     template <int dim> class Velocity;
     template <int dim> class Solution;
     template <int dim> class Scheme;
+    template <int dim> class BoundaryCond;
 
     /*
      * The Velocity Solver. Most of this code is extracted from tutorial 40
@@ -36,17 +37,18 @@ namespace viscosaur
     template <int dim>
     class Velocity
     {
+        //TODO: EVERY call accepts a Scheme. Make this a member pointer.
         public:
             Velocity(Solution<dim> &soln,
-                    dealii::Function<dim> &bc,
+                    BoundaryCond<dim> &bc,
                     ProblemData<dim> &p_pd, 
                     Scheme<dim> &sch);
 
             void step(Solution<dim> &soln, Scheme<dim> &sch);
 
-            void update_bc(dealii::Function<dim> &bc, Scheme<dim> &sch);
+            void update_bc(BoundaryCond<dim> &bc, Scheme<dim> &sch);
         private:
-            void setup_system(dealii::Function<dim> &bc,
+            void setup_system(BoundaryCond<dim> &bc,
                               Solution<dim> &soln, Scheme<dim> &sch);
 
             /* Build the relevant matrices. */

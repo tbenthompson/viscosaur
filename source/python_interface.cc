@@ -13,6 +13,7 @@
 #include "inv_visc.h"
 #include "scheme.h"
 #include "fwd_euler.h"
+#include "bdf2.h"
 #include "problem_data.h"
 #include "control.h"
 #include "stress.h"
@@ -97,14 +98,17 @@ BOOST_PYTHON_MODULE(viscosaur)
         ("ExactVelocity2D", init<vc::TwoLayerAnalytic&>())
         .def("value", &vc::ExactVelocity<2>::value)
         .def("set_t", &vc::ExactVelocity<2>::set_t);
-    class_<vc::SimpleVelocity<2>, bases<dealii::Function<2> > >
+
+    class_<vc::BoundaryCond<2>, boost::noncopyable, 
+                                bases<dealii::Function<2> > >
+          ("BoundaryCond2D", no_init)
+        .def("set_t", &vc::BoundaryCond<2>::set_t)
+        .def("value", pure_virtual(&vc::BoundaryCond<2>::value));
+
+    class_<vc::SimpleVelocity<2>, bases<vc::BoundaryCond<2> > >
         ("SimpleVelocity2D", init<vc::TwoLayerAnalytic&>())
         .def("value", &vc::SimpleVelocity<2>::value)
         .def("set_t", &vc::SimpleVelocity<2>::set_t);
-    class_<vc::SimpleDeltaVelocity<2>, bases<dealii::Function<2> > >
-        ("SimpleDeltaVelocity2D", init<vc::TwoLayerAnalytic&, double>())
-        .def("value", &vc::SimpleDeltaVelocity<2>::value)
-        .def("set_t", &vc::SimpleDeltaVelocity<2>::set_t);
 
     /* Solution object
      */
@@ -138,7 +142,7 @@ BOOST_PYTHON_MODULE(viscosaur)
         def("execute_refine", &vc::ProblemData<2>::execute_refine);
 
     class_<vc::Velocity<2>, boost::noncopyable>("Velocity2D", 
-        init<vc::Solution<2>&, dealii::Function<2>&,
+        init<vc::Solution<2>&, vc::BoundaryCond<2>&,
              vc::ProblemData<2>&, vc::Scheme<2>&>())
         .def("step", &vc::Velocity<2>::step)
         .def("update_bc", &vc::Velocity<2>::update_bc);
@@ -152,6 +156,8 @@ BOOST_PYTHON_MODULE(viscosaur)
 
     class_<vc::Scheme<2>, boost::noncopyable>("Scheme2D", no_init);
     class_<vc::FwdEuler<2>, bases<vc::Scheme<2> > >("FwdEuler2D", 
+            init<vc::ProblemData<2>&>());
+    class_<vc::BDFTwo<2>, bases<vc::Scheme<2> > >("BDFTwo2D", 
             init<vc::ProblemData<2>&>());
 }
 
