@@ -94,10 +94,10 @@ namespace viscosaur
         Function<dim>* encapsulated_bc = sch.handle_bc(bc);
         VectorTools::interpolate_boundary_values(pd->dof_handler,
                 0, *encapsulated_bc, constraints);
-        // VectorTools::interpolate_boundary_values(pd->dof_handler,
-        //         1, *encapsulated_bc, constraints);
         VectorTools::interpolate_boundary_values(pd->dof_handler,
-                2, *encapsulated_bc, constraints);
+                1, *encapsulated_bc, constraints);
+        // VectorTools::interpolate_boundary_values(pd->dof_handler,
+        //         2, *encapsulated_bc, constraints);
         VectorTools::interpolate_boundary_values(pd->dof_handler,
                 3, *encapsulated_bc, constraints);
         constraints.close();

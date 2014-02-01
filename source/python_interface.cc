@@ -42,6 +42,8 @@ BOOST_PYTHON_MODULE(viscosaur)
     class_<dealii::Point<2> >("Point2D", init<double, double>());
     class_<dealii::Function<2>, boost::noncopyable>("Function2D", no_init)
         .def("value", pure_virtual(&dealii::Function<2>::value));
+    class_<dealii::ZeroFunction<2>, boost::noncopyable>("ZeroFunction2D", no_init)
+        .def("value", &dealii::ZeroFunction<2>::value);
     class_<dealii::PETScWrappers::MPI::Vector>("PETScVector", no_init);
     class_<dealii::DoFHandler<2>, boost::noncopyable>("DoFHander2D", no_init);
     class_<dealii::parallel::distributed::Vector<double> >("MPIVector", no_init);

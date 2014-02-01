@@ -15,8 +15,8 @@ def default_params():
     defaults['fe_degree'] = 2;
 
     # Should we load a mesh or create a coarse version and refine it?
-    defaults["load_mesh"] = True
-    defaults["mesh_filename"] = 'saved_mesh.msh'
+    defaults["load_mesh"] = False
+    defaults["mesh_filename"] = None
 
     # How many times to isotropically refine the grid initially.
     defaults['initial_isotropic_refines'] = 3
@@ -41,6 +41,9 @@ def default_params():
     defaults['compress_data_dir'] = True
     # Where to save data?
     defaults['data_dir'] = 'data/test'
+
+    #Compare the output to an analytic solution?
+    defaults['test_output'] = True
 
     # Initial stress setup -- fed into an elastic half-space solution
     # to determine initial conditions. In the future, I could numerically

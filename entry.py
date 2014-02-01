@@ -28,10 +28,14 @@ def proc0_out(info):
 
 # Set up the parameters to be used.
 params = defaults.default_params()
-params['initial_adaptive_refines'] = 9
-params['max_grid_level'] = 12
-params['t_max'] = 10.0 * defaults.secs_in_a_year
-params['time_step'] = params['t_max'] / 10.0
+params['initial_adaptive_refines'] = 13
+params['max_grid_level'] = 13
+params['t_max'] = 100.0 * defaults.secs_in_a_year
+params['time_step'] = params['t_max'] / 4.0
+params['load_mesh'] = False
+params['mesh_filename'] = 'saved_mesh.msh'
+params['refine_frac'] = 0.2
+params['coarse_frac'] = 0.2
 
 # Clear the data directory if asked. The user is trusted to set the parameter
 # appropriately and not delete precious data
@@ -44,7 +48,6 @@ if params['clear_data_dir'] and (mpi_rank is 0):
                 os.unlink(file_path)
         except Exception, e:
             print e
-
 
 
 inv_visc = vc.InvViscosityTLA2D(params)
@@ -64,12 +67,11 @@ init_vel = vc.SimpleVelocity2D(tla)
 init_vel.set_t(0.0)
 exact_vel = vc.SimpleVelocity2D(tla)
 
+vel_bc = vc.SimpleVelocity2D(tla)
+
 def run():
     soln = vc.Solution2D(pd)
-    # vel_bc = vc.SimpleDeltaVelocity2D(tla, params['time_step'])
-    vel_bc = vc.SimpleVelocity2D(tla)
     vel_bc.set_t(params['time_step'])
-
 
     # Setup a 2D poisson solver.
     if not params["load_mesh"]:
@@ -82,15 +84,13 @@ def run():
             soln.start_timestep()
             strs_solver.tentative_step(soln, scheme)
             vel_solver.step(soln, scheme)
-            exact_vel.set_t(params['time_step'])
             soln.output(params['data_dir'], 'init_refinement_' + str(i) + '.',
-                        exact_vel)
+                        vel_bc)
             pd.start_refine(soln.current_velocity)
             pd.execute_refine()
             soln.reinit()
         proc0_out("Done with first time step spatial adaptation.")
         pd.save_mesh("saved_mesh.msh")
-
 
     scheme = vc.FwdEuler2D(pd)
     strs_solver = vc.Stress2D(soln, pd)
@@ -103,18 +103,16 @@ def run():
         t += params['time_step']
         proc0_out("\n\nSolving for time = " + \
                   str(t / defaults.secs_in_a_year) + " \n")
-
         vel_bc.set_t(t)
-
         vel_solver.update_bc(vel_bc, scheme)
 
         soln.start_timestep()
         strs_solver.tentative_step(soln, scheme)
         vel_solver.step(soln, scheme)
         strs_solver.correction_step(soln, scheme)
-        # Fix the output naming scheme
-        filename = "solution-" + str(i) + "."
+
         exact_vel.set_t(t)
+        filename = "solution-" + str(i) + "."
         soln.output(params['data_dir'], filename, exact_vel)
 
 

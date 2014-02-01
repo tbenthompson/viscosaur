@@ -5,9 +5,11 @@
 #include <deal.II/numerics/vector_tools.h>
 #include <deal.II/numerics/data_out.h>
 #include <deal.II/lac/parallel_vector.h>
+#include <boost/python/extract.hpp>
 
 namespace viscosaur
 {
+    namespace bp = boost::python;
     using namespace dealii;
 
     template <int dim>
@@ -28,7 +30,7 @@ namespace viscosaur
         poisson_soln.reinit(pd->locally_owned_dofs,
             pd->locally_relevant_dofs, pd->mpi_comm);
         old_vel.reinit(pd->locally_owned_dofs,
-                pd->locally_relevant_dofs, pd->mpi_comm);
+            pd->locally_relevant_dofs, pd->mpi_comm);
 
         pd->matrix_free.initialize_dof_vector(cur_szx);
         cur_szy.reinit(cur_szx);
@@ -87,43 +89,52 @@ namespace viscosaur
                                Function<dim> &exact) const
     {
         TimerOutput::Scope t(pd->computing_timer, "output");
-        parallel::distributed::Vector<double> exact_vel;
-        exact_vel.reinit(pd->locally_owned_dofs, pd->locally_relevant_dofs,
-                pd->mpi_comm);
-        VectorTools::interpolate(pd->dof_handler, exact, exact_vel);
-        exact_vel.compress(VectorOperation::add);
-        exact_vel.update_ghost_values();
 
-        parallel::distributed::Vector<double> error;
-        error.reinit(pd->locally_owned_dofs, 
-                     pd->locally_relevant_dofs,
-                     pd->mpi_comm);
-        error = cur_vel;
-        error -= exact_vel;
-
-        const double total_local_error = error.l2_norm();
-        const double total_global_error = std::sqrt (
-                dealii::Utilities::MPI::sum (
-                    total_local_error * 
-                    total_local_error, pd->mpi_comm));
-        const double total_local_exact_norm = exact_vel.l2_norm();
-        const double total_global_exact_norm = std::sqrt (
-                dealii::Utilities::MPI::sum (
-                    total_local_exact_norm * 
-                    total_local_exact_norm, pd->mpi_comm));
-        const double true_error = total_global_error / total_global_exact_norm;
-        pd->pcout << "Scaled error: " << true_error << std::endl;
-
+        /* Create our data saving object.
+         */
         DataOut<dim> data_out;
         data_out.attach_dof_handler(pd->dof_handler);
+
+        const bool compare_with_exact = bp::extract<bool>
+            (pd->parameters["test_output"])
+        if (compare_with_exact)
+        {
+            parallel::distributed::Vector<double> exact_vel;
+            exact_vel.reinit(pd->locally_owned_dofs, pd->locally_relevant_dofs,
+                    pd->mpi_comm);
+            VectorTools::interpolate(pd->dof_handler, exact, exact_vel);
+            exact_vel.compress(VectorOperation::add);
+            exact_vel.update_ghost_values();
+
+            parallel::distributed::Vector<double> error;
+            error.reinit(pd->locally_owned_dofs, 
+                         pd->locally_relevant_dofs,
+                         pd->mpi_comm);
+            error = cur_vel;
+            error -= exact_vel;
+
+            const double total_local_error = error.l2_norm();
+            const double total_global_error = std::sqrt (
+                    dealii::Utilities::MPI::sum (
+                        total_local_error * 
+                        total_local_error, pd->mpi_comm));
+            const double total_local_exact_norm = exact_vel.l2_norm();
+            const double total_global_exact_norm = std::sqrt (
+                    dealii::Utilities::MPI::sum (
+                        total_local_exact_norm * 
+                        total_local_exact_norm, pd->mpi_comm));
+            const double true_error = total_global_error / total_global_exact_norm;
+            pd->pcout << "Scaled error: " << true_error << std::endl;
+            data_out.add_data_vector(exact_vel, "exact_vel");
+            data_out.add_data_vector(error, "error");
+        }
+
         data_out.add_data_vector(cur_vel, "vel");
-        // data_out.add_data_vector(poisson_soln, "poisson_soln");
+        data_out.add_data_vector(poisson_soln, "poisson_soln");
         data_out.add_data_vector(tent_szx, "tentative_szx");
         data_out.add_data_vector(tent_szy, "tentative_szy");
         data_out.add_data_vector(cur_szx, "szx");
         data_out.add_data_vector(cur_szy, "szy");
-        data_out.add_data_vector(exact_vel, "exact_vel");
-        data_out.add_data_vector(error, "error");
 
         Vector<float> subdomain(pd->triangulation.n_active_cells());
         unsigned int this_subd = pd->triangulation.locally_owned_subdomain();
