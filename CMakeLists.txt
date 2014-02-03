@@ -32,7 +32,7 @@ IF(NOT GSL_FOUND)
         )
 ENDIF()
 
-FIND_PACKAGE(Boost 1.53 COMPONENTS python REQUIRED)
+FIND_PACKAGE(Boost 1.53 COMPONENTS python filesystem REQUIRED)
 IF(NOT Boost_FOUND)
     MESSAGE(FATAL_ERROR "\n"
         "Could not find Boost. Boost is required for deal.II, so "

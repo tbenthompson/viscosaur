@@ -20,6 +20,7 @@
 #include <deal.II/distributed/grid_refinement.h>
 
 #include <boost/python/extract.hpp>
+#include <boost/filesystem.hpp>
 
 namespace viscosaur
 {
@@ -42,8 +43,24 @@ namespace viscosaur
         one_d_quad(bp::extract<int>(parameters["fe_degree"]) + 1),
         face_quad(bp::extract<int>(parameters["fe_degree"]) + 1)
     {
-        const bool should_load_mesh = 
+        const std::string filename = bp::extract<std::string>(
+                parameters["mesh_filename"]);
+        bool should_load_mesh = 
             bp::extract<bool>(parameters["load_mesh"]);
+        if (should_load_mesh)
+        {
+            bool file_exists = boost::filesystem::exists(filename);
+            if (!file_exists)
+            {
+                should_load_mesh = false;
+                pcout << "load_mesh = True, but the mesh file does not"
+                    << " exist, so mesh generation will proceed as if"
+                    << " load_mesh = False. params[\"load_mesh\"] = False now."
+                    << std::endl;
+                params["load_mesh"] = false;
+            }
+        }
+
         //Even if we load the mesh, we need the basic coarse version to start
         generate_mesh();
         if (should_load_mesh)
