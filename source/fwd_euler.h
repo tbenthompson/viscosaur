@@ -41,9 +41,14 @@ namespace viscosaur
     class FwdEuler: public Scheme<dim>
     {
         public:
-            FwdEuler(ProblemData<dim> &p_pd):
-                Scheme<dim>(p_pd)
+            FwdEuler(ProblemData<dim> &p_pd)
             {
+                reinit(p_pd);
+            }
+
+            virtual void reinit(ProblemData<dim> &p_pd)
+            {
+                Scheme<dim>::reinit(p_pd);
                 //init tent_op                
                 this->tent_op = new FwdEulerTentOp<dim, FE_DEGREE>(p_pd);
                 //init corr_op                

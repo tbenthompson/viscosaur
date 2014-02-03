@@ -1,0 +1,5 @@
+To profile the C++ and python use yep with
+python -m yep entry.py
+and then use pperf (part of gperftools) to convert to callgrind format like:
+google-pprof --callgrind viscosaur.so entry.py.prof > output.callgrind
+I found yep at https://pypi.python.org/pypi/yep

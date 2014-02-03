@@ -43,10 +43,27 @@ namespace viscosaur
     namespace bp = boost::python;
 
     template <int dim>
-    Velocity<dim>::Velocity(Solution<dim> &soln,
+    Velocity<dim>::Velocity(ProblemData<dim> &p_pd, 
+                          Solution<dim> &soln,
                           BoundaryCond<dim> &bc,
-                          ProblemData<dim> &p_pd,
                           Scheme<dim> &sch)
+    {
+        reinit(p_pd, soln, bc, sch);
+    }
+
+    template <int dim>
+    Velocity<dim>::~Velocity()
+    {
+        // std::cout << "Destruction of Velocity." << std::endl;
+    }
+
+    template <int dim>
+    void
+    Velocity<dim>::
+    reinit(ProblemData<dim> &p_pd,
+           Solution<dim> &soln,
+           BoundaryCond<dim> &bc,
+           Scheme<dim> &sch)
     {
         pd = &p_pd;
         pd->pcout << "Setting up the Velocity solver." << std::endl;
@@ -59,7 +76,6 @@ namespace viscosaur
             << pd->dof_handler.n_dofs()
             << std::endl;
     }
-
 
 
     template <int dim>
@@ -75,7 +91,7 @@ namespace viscosaur
             pd->create_sparsity_pattern(constraints);
         // Initialize the matrix, rhs and solution vectors.
         // Ax = b, 
-        // where system_rhs is b, system_matrix is A, locally_relevant_solution 
+        // where system_rhs is b, system_matrix is A, 
         // is A
         system_rhs.reinit(pd->locally_owned_dofs, pd->mpi_comm);
         system_rhs = 0;
@@ -107,7 +123,7 @@ namespace viscosaur
     template <int dim>
     void 
     Velocity<dim>::
-    assemble_matrix(Solution<dim> &soln, Scheme<dim> &sch)
+    assemble_matrix(Solution<dim> &soln, Scheme<dim> &sch, double time_step)
     { 
         TimerOutput::Scope t(pd->computing_timer, "assem_mat");
         FEValues<dim> fe_values(pd->fe, pd->quadrature, 
@@ -128,8 +144,6 @@ namespace viscosaur
         double value;
         const double shear_modulus = 
             bp::extract<double>(pd->parameters["shear_modulus"]);
-        const double time_step = 
-            bp::extract<double>(pd->parameters["time_step"]);
         const double factor = sch.poisson_rhs_factor() / 
             (shear_modulus * time_step);
 
@@ -192,11 +206,11 @@ namespace viscosaur
     template <int dim>
     void 
     Velocity<dim>::
-    assemble_rhs(Solution<dim> &soln, Scheme<dim> &sch)
+    assemble_rhs(Solution<dim> &soln, Scheme<dim> &sch, double time_step)
     { 
         // I should separate matrix and rhs construction so they are 
         // independent. But, wait for the moment, not necessary!
-        assemble_matrix(soln, sch);
+        assemble_matrix(soln, sch, time_step);
     }
 
 
@@ -249,9 +263,11 @@ namespace viscosaur
 
 
     template <int dim>
-    void Velocity<dim>::step(Solution<dim> &soln, Scheme<dim> &sch)
+    void
+    Velocity<dim>::
+    step(Solution<dim> &soln, Scheme<dim> &sch, double time_step)
     {
-        assemble_rhs(soln, sch);
+        assemble_rhs(soln, sch, time_step);
         solve(soln, sch);
     }
 

@@ -30,6 +30,6 @@ namespace viscosaur
 
     Vc::~Vc()
     {
-        delete this->mpi;
+        // delete this->mpi;
     }
 }

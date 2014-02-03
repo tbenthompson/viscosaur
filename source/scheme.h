@@ -24,18 +24,21 @@ namespace viscosaur
     class Scheme
     {
         public:
-            Scheme(ProblemData<dim> &p_pd)
+            virtual void reinit(ProblemData<dim> &p_pd)
             {
                 pd = &p_pd;
             }
-            virtual StressOp<dim, FE_DEGREE>* get_tentative_stepper()
+
+            StressOp<dim, FE_DEGREE>* get_tentative_stepper()
             {
                 return this->tent_op;
             }
-            virtual StressOp<dim, FE_DEGREE>* get_correction_stepper()
+
+            StressOp<dim, FE_DEGREE>* get_correction_stepper()
             {
                 return this->corr_op;
             }
+
             virtual double poisson_rhs_factor() const = 0;
             virtual void handle_poisson_soln(Solution<dim> &soln,
                 dealii::PETScWrappers::MPI::Vector& poisson_soln) const

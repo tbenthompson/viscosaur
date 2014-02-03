@@ -7,6 +7,7 @@
 #include <deal.II/lac/parallel_vector.h>
 #include <boost/python/extract.hpp>
 
+
 namespace viscosaur
 {
     namespace bp = boost::python;
@@ -42,12 +43,6 @@ namespace viscosaur
         tent_szy.reinit(cur_szx);
         cur_vel_for_strs.reinit(cur_szx);
         old_vel_for_strs.reinit(cur_szx);
-
-        old_old_szx.update_ghost_values();
-        old_old_szy.update_ghost_values();
-        old_vel.update_ghost_values();
-        cur_vel_for_strs.update_ghost_values();
-        old_vel_for_strs.update_ghost_values();
     }
 
     template <int dim>
@@ -61,11 +56,6 @@ namespace viscosaur
         VectorTools::interpolate(pd->dof_handler, init_szx, cur_szx);
         VectorTools::interpolate(pd->dof_handler, init_szy, cur_szy);
         VectorTools::interpolate(pd->dof_handler, init_vel, cur_vel);
-        old_szx.update_ghost_values();
-        old_szy.update_ghost_values();
-        cur_szx.update_ghost_values();
-        cur_szy.update_ghost_values();
-        cur_vel.update_ghost_values();
         cur_vel_for_strs = cur_vel;
     }
 
@@ -90,23 +80,19 @@ namespace viscosaur
     {
         TimerOutput::Scope t(pd->computing_timer, "output");
 
-        /* Create our data saving object.
-         */
-        DataOut<dim> data_out;
-        data_out.attach_dof_handler(pd->dof_handler);
 
         const bool compare_with_exact = bp::extract<bool>
-            (pd->parameters["test_output"])
+            (pd->parameters["test_output"]);
+        parallel::distributed::Vector<double> exact_vel;
+        parallel::distributed::Vector<double> error;
         if (compare_with_exact)
         {
-            parallel::distributed::Vector<double> exact_vel;
             exact_vel.reinit(pd->locally_owned_dofs, pd->locally_relevant_dofs,
                     pd->mpi_comm);
             VectorTools::interpolate(pd->dof_handler, exact, exact_vel);
             exact_vel.compress(VectorOperation::add);
             exact_vel.update_ghost_values();
 
-            parallel::distributed::Vector<double> error;
             error.reinit(pd->locally_owned_dofs, 
                          pd->locally_relevant_dofs,
                          pd->mpi_comm);
@@ -125,10 +111,17 @@ namespace viscosaur
                         total_local_exact_norm, pd->mpi_comm));
             const double true_error = total_global_error / total_global_exact_norm;
             pd->pcout << "Scaled error: " << true_error << std::endl;
+        }
+
+        /* Create our data saving object.
+         */
+        DataOut<dim> data_out;
+        data_out.attach_dof_handler(pd->dof_handler);
+        if (compare_with_exact) 
+        {
             data_out.add_data_vector(exact_vel, "exact_vel");
             data_out.add_data_vector(error, "error");
         }
-
         data_out.add_data_vector(cur_vel, "vel");
         data_out.add_data_vector(poisson_soln, "poisson_soln");
         data_out.add_data_vector(tent_szx, "tentative_szx");

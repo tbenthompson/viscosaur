@@ -35,28 +35,25 @@ namespace viscosaur
     namespace bp = boost::python;
 
     template <int dim>
-    Stress<dim>::Stress(Solution<dim> &soln,
-                        ProblemData<dim> &p_pd)
+    Stress<dim>::Stress(ProblemData<dim> &p_pd)
     {
-        pd = &p_pd;
-
-        constraints = *pd->create_constraints();
-        constraints.close();
-
-
-        //Make a vector of stress ops, so that degree can be flexible.
-        //First check if the initialization takes a substantial amount of time.
-        //TODO:Separate this out to the python layer. Maybe provide a "factory"
-        //type system that produces 1st,2nd,3rd,4th order versions?
-        // t_step = new TentativeOp2<dim, fe_degree>(matrix_free, time_step, 
-        //                                       *pd, *inv_visc);
-        // c_step = new CorrectionOp2<dim, fe_degree>(matrix_free, time_step, 
-        //                                       *pd, *inv_visc);
+        reinit(p_pd);
     }
 
     template <int dim>
     Stress<dim>::~Stress()
     {
+    }
+    
+    template <int dim>
+    void
+    Stress<dim>::
+    reinit(ProblemData<dim> &p_pd)
+    {
+        pd = &p_pd; 
+
+        constraints = *pd->create_constraints();
+        constraints.close();
     }
 
     template <int dim>
@@ -66,12 +63,13 @@ namespace viscosaur
                  parallel::distributed::Vector<double> &output,
                  Solution<dim> &soln,
                  unsigned int component,
+                 double time_step,
                  StressOp<dim, FE_DEGREE> &op)
     {
         TimerOutput::Scope t(pd->computing_timer, "stress_step");
 
         //One time step of the relevant operation
-        op.apply(output, input, soln, component);
+        op.apply(output, input, soln, component, time_step);
 
         //Apply constraints to set constrained DoFs to their correct value
         constraints.distribute(output);
@@ -83,21 +81,23 @@ namespace viscosaur
     template <int dim>
     void
     Stress<dim>::tentative_step(Solution<dim> &soln, 
-                                Scheme<dim> &scheme)
+                                Scheme<dim> &scheme,
+                                 double time_step)
     {
         StressOp<dim, FE_DEGREE>* stepper = scheme.get_tentative_stepper();
-        generic_step(soln.old_szx, soln.tent_szx, soln, 0, *stepper);
-        generic_step(soln.old_szy, soln.tent_szy, soln, 1, *stepper);
+        generic_step(soln.old_szx, soln.tent_szx, soln, 0, time_step, *stepper);
+        generic_step(soln.old_szy, soln.tent_szy, soln, 1, time_step, *stepper);
     }
 
     template <int dim>
     void
     Stress<dim>::correction_step(Solution<dim> &soln,
-                                 Scheme<dim>& scheme)
+                                 Scheme<dim>& scheme,
+                                 double time_step)
     {
         StressOp<dim, FE_DEGREE>* stepper = scheme.get_correction_stepper();
-        generic_step(soln.tent_szx, soln.cur_szx, soln, 0, *stepper);
-        generic_step(soln.tent_szy, soln.cur_szy, soln, 1, *stepper);
+        generic_step(soln.tent_szx, soln.cur_szx, soln, 0, time_step, *stepper);
+        generic_step(soln.tent_szy, soln.cur_szy, soln, 1, time_step, *stepper);
     }
 
     template class Stress<2>;

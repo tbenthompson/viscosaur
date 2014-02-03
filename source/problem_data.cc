@@ -61,6 +61,7 @@ namespace viscosaur
     ProblemData<dim>::~ProblemData()
     {
         dof_handler.clear();
+        // std::cout << "Destruction of Problem Data." << std::endl;
     }
 
     template <int dim>

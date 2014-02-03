@@ -39,12 +39,17 @@ namespace viscosaur
     {
         //TODO: EVERY call accepts a Scheme. Make this a member pointer.
         public:
-            Velocity(Solution<dim> &soln,
+            Velocity(ProblemData<dim> &p_pd,
+                    Solution<dim> &soln,
                     BoundaryCond<dim> &bc,
-                    ProblemData<dim> &p_pd, 
                     Scheme<dim> &sch);
+            ~Velocity();
+            void reinit(ProblemData<dim> &p_pd,
+                   Solution<dim> &soln,
+                   BoundaryCond<dim> &bc,
+                   Scheme<dim> &sch);
 
-            void step(Solution<dim> &soln, Scheme<dim> &sch);
+            void step(Solution<dim> &soln, Scheme<dim> &sch, double time_step);
 
             void update_bc(BoundaryCond<dim> &bc, Scheme<dim> &sch);
         private:
@@ -52,19 +57,18 @@ namespace viscosaur
                               Solution<dim> &soln, Scheme<dim> &sch);
 
             /* Build the relevant matrices. */
-            void assemble_matrix(Solution<dim> &soln, Scheme<dim> &sch);
+            void assemble_matrix(Solution<dim> &soln, Scheme<dim> &sch, 
+                    double time_step);
 
             /* Build the rhs */
-            void assemble_rhs(Solution<dim> &soln, Scheme<dim> &sch);
+            void assemble_rhs(Solution<dim> &soln, Scheme<dim> &sch, 
+                    double time_step);
 
             void solve (Solution<dim> &soln, Scheme<dim> &sch);
             
             ProblemData<dim>* pd;
-            dealii::Function<dim>* init_cond_Szx;
-            dealii::Function<dim>* init_cond_Szy;
             dealii::ConstraintMatrix constraints;
             LA::MPI::SparseMatrix system_matrix;
-            LA::MPI::Vector       locally_relevant_solution;
             LA::MPI::Vector       system_rhs;
     };
 

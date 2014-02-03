@@ -73,7 +73,7 @@ BOOST_PYTHON_MODULE(viscosaur)
 
     class_<vc::TwoLayerAnalytic, boost::noncopyable>("TwoLayerAnalytic", 
             init<double, double, double, double,
-                 vc::SlipFnc&>())
+                 vc::SlipFnc&>()[with_custodian_and_ward<1,6>()])
         .def("simple_velocity", &vc::TwoLayerAnalytic::simple_velocity)
         .def("simple_Szx", &vc::TwoLayerAnalytic::simple_Szx)
         .def("simple_Szy", &vc::TwoLayerAnalytic::simple_Szy)
@@ -85,19 +85,24 @@ BOOST_PYTHON_MODULE(viscosaur)
      * Note the three "> > >" -- these must be separated by a space
      */
     class_<vc::InitSzx<2>, bases<dealii::Function<2> > >
-        ("InitSzx2D", init<vc::TwoLayerAnalytic&>())
+        ("InitSzx2D", init<vc::TwoLayerAnalytic&>()
+            [with_custodian_and_ward<1,2>()])
         .def("value", &vc::InitSzx<2>::value);
     class_<vc::InitSzy<2>, bases<dealii::Function<2> > >
-        ("InitSzy2D", init<vc::TwoLayerAnalytic&>())
+        ("InitSzy2D", init<vc::TwoLayerAnalytic&>()
+            [with_custodian_and_ward<1,2>()])
         .def("value", &vc::InitSzy<2>::value);
     class_<vc::SimpleInitSzx<2>, bases<dealii::Function<2> > >
-        ("SimpleInitSzx2D", init<vc::TwoLayerAnalytic&>())
+        ("SimpleInitSzx2D", init<vc::TwoLayerAnalytic&>()
+            [with_custodian_and_ward<1,2>()])
         .def("value", &vc::InitSzx<2>::value);
     class_<vc::SimpleInitSzy<2>, bases<dealii::Function<2> > >
-        ("SimpleInitSzy2D", init<vc::TwoLayerAnalytic&>())
+        ("SimpleInitSzy2D", init<vc::TwoLayerAnalytic&>()
+            [with_custodian_and_ward<1,2>()])
         .def("value", &vc::InitSzy<2>::value);
     class_<vc::ExactVelocity<2>, bases<dealii::Function<2> > >
-        ("ExactVelocity2D", init<vc::TwoLayerAnalytic&>())
+        ("ExactVelocity2D", init<vc::TwoLayerAnalytic&>()
+            [with_custodian_and_ward<1,2>()])
         .def("value", &vc::ExactVelocity<2>::value)
         .def("set_t", &vc::ExactVelocity<2>::set_t);
 
@@ -108,14 +113,15 @@ BOOST_PYTHON_MODULE(viscosaur)
         .def("value", pure_virtual(&vc::BoundaryCond<2>::value));
 
     class_<vc::SimpleVelocity<2>, bases<vc::BoundaryCond<2> > >
-        ("SimpleVelocity2D", init<vc::TwoLayerAnalytic&>())
+        ("SimpleVelocity2D", init<vc::TwoLayerAnalytic&>()
+            [with_custodian_and_ward<1,2>()])
         .def("value", &vc::SimpleVelocity<2>::value)
         .def("set_t", &vc::SimpleVelocity<2>::set_t);
 
     /* Solution object
      */
     class_<vc::Solution<2>, boost::noncopyable>("Solution2D", 
-        init<vc::ProblemData<2>&>())
+        init<vc::ProblemData<2>&>()[with_custodian_and_ward<1,2>()])
         .def("apply_init_cond", &vc::Solution<2>::apply_init_cond)
         .def("reinit", &vc::Solution<2>::reinit)
         .def("output", &vc::Solution<2>::output)
@@ -139,28 +145,34 @@ BOOST_PYTHON_MODULE(viscosaur)
      */ 
 
     class_<vc::ProblemData<2>, boost::noncopyable>("ProblemData2D",
-            init<dict&, vc::InvViscosity<2>*>())
+            init<dict&, vc::InvViscosity<2>*>()
+                [with_custodian_and_ward<1,3>()])
         .def("start_refine", &vc::ProblemData<2>::start_refine)
         .def("execute_refine", &vc::ProblemData<2>::execute_refine)
         .def("save_mesh", &vc::ProblemData<2>::save_mesh);
 
     class_<vc::Velocity<2>, boost::noncopyable>("Velocity2D", 
-        init<vc::Solution<2>&, vc::BoundaryCond<2>&,
-             vc::ProblemData<2>&, vc::Scheme<2>&>())
+        init<vc::ProblemData<2>&, vc::Solution<2>&, 
+             vc::BoundaryCond<2>&, vc::Scheme<2>&>()
+                [with_custodian_and_ward<1,2>()])
         .def("step", &vc::Velocity<2>::step)
-        .def("update_bc", &vc::Velocity<2>::update_bc);
+        .def("update_bc", &vc::Velocity<2>::update_bc)
+        .def("reinit", &vc::Velocity<2>::reinit);
 
     /* Stress updater.
      */
     class_<vc::Stress<2>, boost::noncopyable>("Stress2D", 
-        init<vc::Solution<2>&, vc::ProblemData<2>&>())
+        init<vc::ProblemData<2>&>()[with_custodian_and_ward<1,2>()])
         .def("tentative_step", &vc::Stress<2>::tentative_step)
-        .def("correction_step", &vc::Stress<2>::correction_step);
+        .def("correction_step", &vc::Stress<2>::correction_step)
+        .def("reinit", &vc::Stress<2>::reinit);
 
     class_<vc::Scheme<2>, boost::noncopyable>("Scheme2D", no_init);
     class_<vc::FwdEuler<2>, bases<vc::Scheme<2> > >("FwdEuler2D", 
-            init<vc::ProblemData<2>&>());
+            init<vc::ProblemData<2>&>()[with_custodian_and_ward<1,2>()])
+        .def("reinit", &vc::FwdEuler<2>::reinit);
     class_<vc::BDFTwo<2>, bases<vc::Scheme<2> > >("BDFTwo2D", 
-            init<vc::ProblemData<2>&>());
+            init<vc::ProblemData<2>&>()[with_custodian_and_ward<1,2>()])
+        .def("reinit", &vc::BDFTwo<2>::reinit);
 }
 

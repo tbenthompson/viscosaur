@@ -44,7 +44,9 @@ namespace viscosaur
             void apply(dealii::parallel::distributed::Vector<double> &dst, 
                 const dealii::parallel::distributed::Vector<double> &src,
                 Solution<dim> &soln,
-                const unsigned int comp);
+                const unsigned int comp,
+                const double time_step);
+
 
             ProblemData<dim>* pd;
             dealii::parallel::distributed::Vector<double> inv_mass_matrix;
@@ -85,11 +87,6 @@ namespace viscosaur
         pd = &p_pd;
         dealii::TimerOutput::Scope t(pd->computing_timer, "setup_stress");
         one = dealii::make_vectorized_array(1.);
-        const double shear_modulus = 
-            bp::extract<double>(pd->parameters["shear_modulus"]);
-        const double time_step = 
-            bp::extract<double>(pd->parameters["time_step"]);
-        mu_dt = dealii::make_vectorized_array(shear_modulus * time_step);
         compute_mass_matrix();
     }
 
@@ -137,8 +134,12 @@ namespace viscosaur
     apply(dealii::parallel::distributed::Vector<double> &dst,
           const dealii::parallel::distributed::Vector<double> &src,
           Solution<dim> &soln,
-          const unsigned int comp)
+          const unsigned int comp,
+          const double time_step)
     {
+        const double shear_modulus = 
+            bp::extract<double>(pd->parameters["shear_modulus"]);
+        this->mu_dt = dealii::make_vectorized_array(shear_modulus * time_step);
         dst = 0;
         this->soln = &soln;
         this->component = comp;
