@@ -35,13 +35,13 @@ namespace viscosaur
                 (Triangulation<dim>::smoothing_on_refinement |
                  Triangulation<dim>::smoothing_on_coarsening)),
         dof_handler(triangulation),
-        fe(QGaussLobatto<1>(bp::extract<int>(parameters["fe_degree"]) + 1)),
-        pcout(std::cout, (Utilities::MPI::this_mpi_process(mpi_comm) == 0)),
-        computing_timer(pcout, TimerOutput::summary, TimerOutput::wall_times),
         parameters(params),
         quadrature(bp::extract<int>(parameters["fe_degree"]) + 1),
         one_d_quad(bp::extract<int>(parameters["fe_degree"]) + 1),
-        face_quad(bp::extract<int>(parameters["fe_degree"]) + 1)
+        face_quad(bp::extract<int>(parameters["fe_degree"]) + 1),
+        fe(QGaussLobatto<1>(bp::extract<int>(parameters["fe_degree"]) + 1)),
+        pcout(std::cout, (Utilities::MPI::this_mpi_process(mpi_comm) == 0)),
+        computing_timer(pcout, TimerOutput::summary, TimerOutput::wall_times)
     {
         const std::string filename = bp::extract<std::string>(
                 parameters["mesh_filename"]);
@@ -219,7 +219,7 @@ namespace viscosaur
             (triangulation.n_active_cells());
         const unsigned int fe_d = bp::extract<int>(parameters["fe_degree"]);
         KellyErrorEstimator<dim>::estimate (dof_handler,
-                QGaussLobatto<dim - 1>(fe_d + 1),
+                face_quad,
                 typename FunctionMap<dim>::type(),
                 refinement_measure,
                 estimated_error_per_cell);

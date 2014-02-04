@@ -62,6 +62,20 @@ namespace viscosaur
     template <int dim>
     void
     Solution<dim>::
+    init_multistep(Function<dim> &init_szx,
+                   Function<dim> &init_szy,
+                   Function<dim> &init_vel)
+    {
+        TimerOutput::Scope t(pd->computing_timer, "init_cond");
+        VectorTools::interpolate(pd->dof_handler, init_szx, old_szx);
+        VectorTools::interpolate(pd->dof_handler, init_szy, old_szy);
+        VectorTools::interpolate(pd->dof_handler, init_vel, old_vel);
+        old_vel_for_strs = old_vel;
+    }
+
+    template <int dim>
+    void
+    Solution<dim>::
     start_timestep()
     {
         //Flip the solns to retain the old soln.

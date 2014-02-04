@@ -123,6 +123,7 @@ BOOST_PYTHON_MODULE(viscosaur)
     class_<vc::Solution<2>, boost::noncopyable>("Solution2D", 
         init<vc::ProblemData<2>&>()[with_custodian_and_ward<1,2>()])
         .def("apply_init_cond", &vc::Solution<2>::apply_init_cond)
+        .def("init_multistep", &vc::Solution<2>::init_multistep)
         .def("reinit", &vc::Solution<2>::reinit)
         .def("output", &vc::Solution<2>::output)
         .def("start_timestep", &vc::Solution<2>::start_timestep)

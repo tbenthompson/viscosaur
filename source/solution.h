@@ -24,6 +24,9 @@ namespace viscosaur
             void apply_init_cond(dealii::Function<dim> &init_szx,
                                  dealii::Function<dim> &init_szy,
                                  dealii::Function<dim> &init_vel);
+            void init_multistep(dealii::Function<dim> &init_szx,
+                                dealii::Function<dim> &init_szy,
+                                dealii::Function<dim> &init_vel);
 
             void output(std::string data_dir,
                         std::string filename,

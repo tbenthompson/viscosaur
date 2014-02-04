@@ -36,11 +36,11 @@ def refine(pd, soln, strs_solver, vel_solver, scheme):
 
 # Set up the parameters to be used.
 params = defaults.default_params()
-params['initial_adaptive_refines'] = 7
-params['max_grid_level'] = 11
+params['initial_adaptive_refines'] = 10
+params['max_grid_level'] = 14
 params['t_max'] = 100.0 * defaults.secs_in_a_year
-params['time_step'] = params['t_max'] / 4.0
-params['load_mesh'] = True
+params['time_step'] = params['t_max'] / 16.0
+params['load_mesh'] = False
 params['mesh_filename'] = 'saved_mesh.msh'
 params['refine_frac'] = 0.2
 params['coarse_frac'] = 0.2
@@ -67,17 +67,17 @@ exact_vel = vc.SimpleVelocity2D(tla)
 
 vel_bc = vc.SimpleVelocity2D(tla)
 
-vel_bc.set_t(params['time_step'])
 
+
+sub_timesteps = 10
+# Setup a 2D poisson solver.
 soln = vc.Solution2D(pd)
 scheme = vc.FwdEuler2D(pd)
 vel_solver = vc.Velocity2D(pd, soln, vel_bc, scheme)
 strs_solver = vc.Stress2D(pd)
-
-sub_timesteps = 10
-# Setup a 2D poisson solver.
 if not params["load_mesh"]:
     time_step = params['time_step'] / sub_timesteps
+    vel_bc.set_t(params['time_step'] / sub_timesteps)
     for i in range(params['initial_adaptive_refines']):
         soln.apply_init_cond(init_szx, init_szy, init_vel)
         step(soln, strs_solver, vel_solver, scheme, time_step)
@@ -103,9 +103,12 @@ while t < params['t_max']:
         filename = "solution-" + str(i) + "."
         soln.output(params['data_dir'], filename, exact_vel)
         refine(pd, soln, strs_solver, vel_solver, scheme)
+    if i == 1:
+        # At the end of the first time step, we switch to using a BDF2 scheme
+        sub_timesteps = 1
+        soln.init_multistep(init_szx, init_szy, init_vel)
+        scheme = vc.BDFTwo2D(pd)
     i += 1
-    sub_timesteps = 1
-    scheme = vc.BDFTwo2D(pd)
 
 c.proc0_out("From python: run complete")
 c.kill()
