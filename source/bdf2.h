@@ -86,6 +86,7 @@ namespace viscosaur
             }
 
             virtual void handle_poisson_soln(Solution<dim> &soln,
+
                 dealii::PETScWrappers::MPI::Vector& poisson_soln) const
             {
                 soln.poisson_soln.reinit(soln.cur_vel);
@@ -137,6 +138,7 @@ namespace viscosaur
                 rel_tol += 1e-9 * abs(guess[d][array_el]);
             }
         }
+        rel_tol /= dim * guess[0].n_array_elements;
 
 
         for(unsigned int iter = 0; iter < iter_max; iter++)
@@ -160,7 +162,7 @@ namespace viscosaur
                 for(unsigned int array_el = 0; array_el < 
                         guess[0].n_array_elements; array_el++)
                 {
-                    residual += 1e-9 * abs(f_val[d][array_el]);
+                    residual += abs(f_val[d][array_el]);
                 }
             }
             if ((residual < rel_tol) || (residual < abs_tol))
