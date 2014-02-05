@@ -26,50 +26,42 @@ namespace viscosaur
     Solution<dim>::
     reinit()
     {
-        cur_vel.reinit(pd->locally_owned_dofs,
-            pd->locally_relevant_dofs, pd->mpi_comm);
-        poisson_soln.reinit(pd->locally_owned_dofs,
-            pd->locally_relevant_dofs, pd->mpi_comm);
-        old_vel.reinit(pd->locally_owned_dofs,
-            pd->locally_relevant_dofs, pd->mpi_comm);
+        cur_vel.reinit(pd->vel_locally_owned_dofs,
+            pd->vel_locally_relevant_dofs, pd->mpi_comm);
+        poisson_soln.reinit(pd->vel_locally_owned_dofs,
+            pd->vel_locally_relevant_dofs, pd->mpi_comm);
+        old_vel.reinit(pd->vel_locally_owned_dofs,
+            pd->vel_locally_relevant_dofs, pd->mpi_comm);
 
-        pd->matrix_free.initialize_dof_vector(cur_szx);
-        cur_szy.reinit(cur_szx);
-        old_szx.reinit(cur_szx);
-        old_szy.reinit(cur_szx);
-        old_old_szx.reinit(cur_szx);
-        old_old_szy.reinit(cur_szx);
-        tent_szx.reinit(cur_szx);
-        tent_szy.reinit(cur_szx);
-        cur_vel_for_strs.reinit(cur_szx);
-        old_vel_for_strs.reinit(cur_szx);
+        pd->strs_matrix_free.initialize_dof_vector(cur_strs);
+        old_strs.reinit(cur_strs);
+        old_old_strs.reinit(cur_strs);
+        tent_strs.reinit(cur_strs);
+        pd->vel_matrix_free.initialize_dof_vector(cur_vel_for_strs);
+        pd->vel_matrix_free.initialize_dof_vector(old_vel_for_strs);
     }
 
     template <int dim>
     void
     Solution<dim>::
-    apply_init_cond(Function<dim> &init_szx,
-                    Function<dim> &init_szy,
+    apply_init_cond(Function<dim> &init_strs,
                     Function<dim> &init_vel)
     {
         TimerOutput::Scope t(pd->computing_timer, "init_cond");
-        VectorTools::interpolate(pd->dof_handler, init_szx, cur_szx);
-        VectorTools::interpolate(pd->dof_handler, init_szy, cur_szy);
-        VectorTools::interpolate(pd->dof_handler, init_vel, cur_vel);
+        VectorTools::interpolate(pd->strs_dof_handler, init_strs, cur_strs);
+        VectorTools::interpolate(pd->vel_dof_handler, init_vel, cur_vel);
         cur_vel_for_strs = cur_vel;
     }
 
     template <int dim>
     void
     Solution<dim>::
-    init_multistep(Function<dim> &init_szx,
-                   Function<dim> &init_szy,
+    init_multistep(Function<dim> &init_strs,
                    Function<dim> &init_vel)
     {
         TimerOutput::Scope t(pd->computing_timer, "init_cond");
-        VectorTools::interpolate(pd->dof_handler, init_szx, old_szx);
-        VectorTools::interpolate(pd->dof_handler, init_szy, old_szy);
-        VectorTools::interpolate(pd->dof_handler, init_vel, old_vel);
+        VectorTools::interpolate(pd->strs_dof_handler, init_strs, old_strs);
+        VectorTools::interpolate(pd->vel_dof_handler, init_vel, old_vel);
         old_vel_for_strs = old_vel;
     }
 
@@ -79,10 +71,8 @@ namespace viscosaur
     start_timestep()
     {
         //Flip the solns to retain the old soln.
-        old_old_szx.swap(old_szx);
-        old_old_szy.swap(old_szy);
-        old_szx.swap(cur_szx);
-        old_szy.swap(cur_szy);
+        old_old_strs.swap(old_strs);
+        old_strs.swap(cur_strs);
         old_vel.swap(cur_vel);
         old_vel_for_strs.swap(cur_vel_for_strs);
     }
@@ -101,14 +91,15 @@ namespace viscosaur
         parallel::distributed::Vector<double> error;
         if (compare_with_exact)
         {
-            exact_vel.reinit(pd->locally_owned_dofs, pd->locally_relevant_dofs,
-                    pd->mpi_comm);
-            VectorTools::interpolate(pd->dof_handler, exact, exact_vel);
+            exact_vel.reinit(pd->vel_locally_owned_dofs, 
+                             pd->vel_locally_relevant_dofs,
+                             pd->mpi_comm);
+            VectorTools::interpolate(pd->vel_dof_handler, exact, exact_vel);
             exact_vel.compress(VectorOperation::add);
             exact_vel.update_ghost_values();
 
-            error.reinit(pd->locally_owned_dofs, 
-                         pd->locally_relevant_dofs,
+            error.reinit(pd->vel_locally_owned_dofs, 
+                         pd->vel_locally_relevant_dofs,
                          pd->mpi_comm);
             error = cur_vel;
             error -= exact_vel;
@@ -130,18 +121,28 @@ namespace viscosaur
         /* Create our data saving object.
          */
         DataOut<dim> data_out;
-        data_out.attach_dof_handler(pd->dof_handler);
         if (compare_with_exact) 
         {
-            data_out.add_data_vector(exact_vel, "exact_vel");
-            data_out.add_data_vector(error, "error");
+            data_out.add_data_vector(pd->vel_dof_handler, exact_vel, "exact_vel");
+            data_out.add_data_vector(pd->vel_dof_handler, error, "error");
         }
-        data_out.add_data_vector(cur_vel, "vel");
-        data_out.add_data_vector(poisson_soln, "poisson_soln");
-        data_out.add_data_vector(tent_szx, "tentative_szx");
-        data_out.add_data_vector(tent_szy, "tentative_szy");
-        data_out.add_data_vector(cur_szx, "szx");
-        data_out.add_data_vector(cur_szy, "szy");
+        data_out.add_data_vector(pd->vel_dof_handler, cur_vel, "vel");
+        data_out.add_data_vector(pd->vel_dof_handler, poisson_soln, "poisson_soln");
+
+
+        // Output the stresses.
+        std::vector<std::string> cur_solution_names(2);
+        cur_solution_names[0] = "cur_szx";
+        cur_solution_names[1] = "cur_szy";
+        //Current stresses
+        data_out.add_data_vector(pd->strs_dof_handler, cur_strs, cur_solution_names);
+                                 
+        std::vector<std::string> tent_solution_names(2);
+        tent_solution_names[0] = "tent_szx";
+        tent_solution_names[1] = "tent_szy";
+        //Tentative stresses
+        data_out.add_data_vector(pd->strs_dof_handler, tent_strs, tent_solution_names);
+
 
         Vector<float> subdomain(pd->triangulation.n_active_cells());
         unsigned int this_subd = pd->triangulation.locally_owned_subdomain();
@@ -176,44 +177,54 @@ namespace viscosaur
     }
 
     template <int dim>
-    parallel::distributed::SolutionTransfer<dim, 
-            parallel::distributed::Vector<double> >* 
+    void
     Solution<dim>::
     start_refine()
     {
         TimerOutput::Scope t(pd->computing_timer, "refine");
+
         parallel::distributed::SolutionTransfer<dim, 
             parallel::distributed::Vector<double> >*
-            sol_trans = new parallel::distributed::SolutionTransfer<dim, 
-            parallel::distributed::Vector<double> >(pd->dof_handler);    
+            vel_sol_trans = new parallel::distributed::SolutionTransfer<dim, 
+            parallel::distributed::Vector<double> >(pd->vel_dof_handler);    
 
-        std::vector<const parallel::distributed::Vector<double>* > vecs(5);
-        vecs[0] = &cur_vel;
-        vecs[1] = &cur_szx;
-        vecs[2] = &cur_szy;
-        vecs[3] = &old_szx;
-        vecs[4] = &old_szy;
-        sol_trans->prepare_for_coarsening_and_refinement(vecs);
+        parallel::distributed::SolutionTransfer<dim, 
+            parallel::distributed::Vector<double> >*
+            strs_sol_trans = new parallel::distributed::SolutionTransfer<dim, 
+            parallel::distributed::Vector<double> >(pd->strs_dof_handler);    
 
-        return sol_trans;
+        std::vector<const parallel::distributed::Vector<double>* > vel_vecs(1);
+        vel_vecs[0] = &cur_vel;
+
+        std::vector<const parallel::distributed::Vector<double>* > strs_vecs(2);
+        strs_vecs[0] = &cur_strs;
+        strs_vecs[1] = &old_strs;
+        vel_sol_trans->prepare_for_coarsening_and_refinement(vel_vecs);
+        strs_sol_trans->prepare_for_coarsening_and_refinement(strs_vecs);
+
+        std::vector<parallel::distributed::SolutionTransfer<dim, 
+                parallel::distributed::Vector<double> >* > retval(2);
+        retval[0] = vel_sol_trans;
+        retval[1] = strs_sol_trans;
+        sol_trans = retval;
     }
     
 
     template <int dim>
     void
     Solution<dim>::
-    post_refine(parallel::distributed::SolutionTransfer<dim, 
-            parallel::distributed::Vector<double> >* sol_trans)
+    post_refine(Solution<dim> &soln)
     {
         TimerOutput::Scope t(pd->computing_timer, "refine");
-        std::vector<parallel::distributed::Vector<double>* > vecs(5);
-        vecs[0] = &cur_vel;
-        vecs[1] = &cur_szx;
-        vecs[2] = &cur_szy;
-        vecs[3] = &old_szx;
-        vecs[4] = &old_szy;
-        sol_trans->interpolate(vecs);
+        std::vector<parallel::distributed::Vector<double>* > vel_vecs(1);
+        vel_vecs[0] = &cur_vel;
+        soln.sol_trans[0]->interpolate(vel_vecs);
         cur_vel_for_strs = cur_vel;
+
+        std::vector<parallel::distributed::Vector<double>* > strs_vecs(2);
+        strs_vecs[0] = &cur_strs;
+        strs_vecs[1] = &old_strs;
+        soln.sol_trans[1]->interpolate(strs_vecs);
     }
 
     template class Solution<2>;

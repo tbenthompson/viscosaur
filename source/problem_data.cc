@@ -34,14 +34,17 @@ namespace viscosaur
                 typename Triangulation<dim>::MeshSmoothing
                 (Triangulation<dim>::smoothing_on_refinement |
                  Triangulation<dim>::smoothing_on_coarsening)),
-        dof_handler(triangulation),
         parameters(params),
         quadrature(bp::extract<int>(parameters["fe_degree"]) + 1),
         one_d_quad(bp::extract<int>(parameters["fe_degree"]) + 1),
         face_quad(bp::extract<int>(parameters["fe_degree"]) + 1),
-        fe(QGaussLobatto<1>(bp::extract<int>(parameters["fe_degree"]) + 1)),
         pcout(std::cout, (Utilities::MPI::this_mpi_process(mpi_comm) == 0)),
-        computing_timer(pcout, TimerOutput::summary, TimerOutput::wall_times)
+        computing_timer(pcout, TimerOutput::summary, TimerOutput::wall_times),
+        vel_dof_handler(triangulation),
+        vel_fe(QGaussLobatto<1>(bp::extract<int>(parameters["fe_degree"]) + 1)),
+        strs_dof_handler(triangulation),
+        strs_fe(FE_Q<dim>(QGaussLobatto<1>(
+                    bp::extract<int>(parameters["fe_degree"]) + 1)), dim)
     {
         const std::string filename = bp::extract<std::string>(
                 parameters["mesh_filename"]);
@@ -77,7 +80,8 @@ namespace viscosaur
     template <int dim>
     ProblemData<dim>::~ProblemData()
     {
-        dof_handler.clear();
+        vel_dof_handler.clear();
+        strs_dof_handler.clear();
         // std::cout << "Destruction of Problem Data." << std::endl;
     }
 
@@ -90,66 +94,83 @@ namespace viscosaur
         // Internally, this also does load balancing and makes sure that each   
         // process has a chunk of the dofs. The process will not be aware of 
         // any dofs outside of the owned dofs and the ghost adjacent dofs.
-        dof_handler.distribute_dofs(fe);
+        vel_dof_handler.distribute_dofs(vel_fe);
+        strs_dof_handler.distribute_dofs(strs_fe);
 
-        // Set the dofs that this process will actually solve.
-        locally_owned_dofs = dof_handler.locally_owned_dofs();
-
-        // Set the dofs that this process will need to perform solving
-        DoFTools::extract_locally_relevant_dofs(dof_handler,
-                locally_relevant_dofs);
         // Check the dealii faq for more information on dof handling in mpi 
         // processes
-        DoFTools::extract_locally_active_dofs(dof_handler,
-                locally_active_dofs);
+        // Set the dofs that this process will actually solve.
+        vel_locally_owned_dofs = vel_dof_handler.locally_owned_dofs();
+
+        // Set the dofs that this process will need to perform solving
+        DoFTools::extract_locally_relevant_dofs(vel_dof_handler,
+                vel_locally_relevant_dofs);
 
         // Create a constraints matrix that just contains the hanging node 
         // constraints. We will copy this matrix later when we need to add other
         // constraints like boundary conditions.
-        hanging_node_constraints.clear();
-        hanging_node_constraints.reinit(locally_relevant_dofs);
-        DoFTools::make_hanging_node_constraints(dof_handler, 
-                                                hanging_node_constraints);
+        vel_hanging_node_constraints.clear();
+        vel_hanging_node_constraints.reinit(vel_locally_relevant_dofs);
+        DoFTools::make_hanging_node_constraints(vel_dof_handler, 
+                                                vel_hanging_node_constraints);
+        strs_hanging_node_constraints.clear();
+        strs_hanging_node_constraints.reinit(strs_locally_relevant_dofs);
+        DoFTools::make_hanging_node_constraints(strs_dof_handler, 
+                                                strs_hanging_node_constraints);
 
         // Also initialize the matrix free objects for any explicit operations
         // we may wish to perform.
-        typename MatrixFree<dim>::AdditionalData additional_data;
-        additional_data.mapping_update_flags = (update_values |
-                                          update_gradients |
+        typename MatrixFree<dim>::AdditionalData additional_data_strs;
+        additional_data_strs.mapping_update_flags = (update_values |
                                           update_JxW_values |
                                           update_quadrature_points);
-        additional_data.mpi_communicator = mpi_comm;
+        additional_data_strs.mpi_communicator = mpi_comm;
 
-        //Needs to be one-dimensional
-        matrix_free.reinit(dof_handler, hanging_node_constraints,
-                           one_d_quad, additional_data);
+        typename MatrixFree<dim>::AdditionalData additional_data_vel;
+        additional_data_vel.mapping_update_flags = update_gradients;
+        additional_data_vel.mpi_communicator = mpi_comm;
+
+        strs_matrix_free.reinit(strs_dof_handler, strs_hanging_node_constraints,
+                           one_d_quad, additional_data_strs);
+        vel_matrix_free.reinit(vel_dof_handler, vel_hanging_node_constraints,
+                           one_d_quad, additional_data_vel);
     }
 
     template <int dim>
     ConstraintMatrix*
     ProblemData<dim>::
-    create_constraints()
+    create_vel_constraints()
+    {
+        // Return a constraint matrix that just contains hanging nodes,
+        // no boundary conditions included.
+        return new ConstraintMatrix(strs_hanging_node_constraints);
+    }
+
+    template <int dim>
+    ConstraintMatrix*
+    ProblemData<dim>::
+    create_strs_constraints()
     {
         // Return a constraint matrix the just contains hanging nodes,
         // no boundary conditions included.
-        return new ConstraintMatrix(hanging_node_constraints);
+        return new ConstraintMatrix(vel_hanging_node_constraints);
     }
 
     template <int dim>
     CompressedSimpleSparsityPattern*
     ProblemData<dim>::
-    create_sparsity_pattern(ConstraintMatrix &constraints)
+    create_vel_sparsity_pattern(ConstraintMatrix &constraints)
     {
-        // Create a sparsit pattern for the given constraint matrix.
+        // Create a sparsity pattern for the given constraint matrix.
         CompressedSimpleSparsityPattern* csp = new 
-            CompressedSimpleSparsityPattern(locally_relevant_dofs);
-        DoFTools::make_sparsity_pattern(dof_handler, *csp, constraints, false);
+            CompressedSimpleSparsityPattern(vel_locally_relevant_dofs);
+        DoFTools::make_sparsity_pattern(vel_dof_handler, *csp, constraints, false);
 
         // Share it amongst all processors.
         SparsityTools::distribute_sparsity_pattern(*csp,
-                dof_handler.n_locally_owned_dofs_per_processor(),
+                vel_dof_handler.n_locally_owned_dofs_per_processor(),
                 mpi_comm,
-                locally_relevant_dofs);
+                vel_locally_relevant_dofs);
         return csp;
     }
 
@@ -215,10 +236,11 @@ namespace viscosaur
 
         // Calculate the error estimate from the kelly et. al. paper.
         // TODO: Look up this paper and read about the error estimator.
+        // TODO: Refactor this out into another module -- error analysis
         Vector<float> estimated_error_per_cell
             (triangulation.n_active_cells());
         const unsigned int fe_d = bp::extract<int>(parameters["fe_degree"]);
-        KellyErrorEstimator<dim>::estimate (dof_handler,
+        KellyErrorEstimator<dim>::estimate(vel_dof_handler,
                 face_quad,
                 typename FunctionMap<dim>::type(),
                 refinement_measure,

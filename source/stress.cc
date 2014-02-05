@@ -52,7 +52,9 @@ namespace viscosaur
     {
         pd = &p_pd; 
 
-        constraints = *pd->create_constraints();
+        //TODO: This is the only object contained by this class. Can we get
+        //rid of this class completely?
+        constraints = *pd->create_strs_constraints();
         constraints.close();
     }
 
@@ -85,8 +87,7 @@ namespace viscosaur
                                  double time_step)
     {
         StressOp<dim, FE_DEGREE>* stepper = scheme.get_tentative_stepper();
-        generic_step(soln.old_szx, soln.tent_szx, soln, 0, time_step, *stepper);
-        generic_step(soln.old_szy, soln.tent_szy, soln, 1, time_step, *stepper);
+        generic_step(soln.old_strs, soln.tent_strs, soln, 0, time_step, *stepper);
     }
 
     template <int dim>
@@ -96,8 +97,7 @@ namespace viscosaur
                                  double time_step)
     {
         StressOp<dim, FE_DEGREE>* stepper = scheme.get_correction_stepper();
-        generic_step(soln.tent_szx, soln.cur_szx, soln, 0, time_step, *stepper);
-        generic_step(soln.tent_szy, soln.cur_szy, soln, 1, time_step, *stepper);
+        generic_step(soln.tent_strs, soln.cur_strs, soln, 0, time_step, *stepper);
     }
 
     template class Stress<2>;

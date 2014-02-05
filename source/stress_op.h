@@ -47,33 +47,34 @@ namespace viscosaur
                 const unsigned int comp,
                 const double time_step);
 
-
-            ProblemData<dim>* pd;
-            dealii::parallel::distributed::Vector<double> inv_mass_matrix;
-            dealii::VectorizedArray<double> mu_dt;
-            dealii::VectorizedArray<double> one;
-
-            Solution<dim>* soln;
-            unsigned int component;
-            dealii::VectorizedArray<double> old_val;
-            dealii::Tensor<1, dim, dealii::VectorizedArray<double> >
-                old_grad_vel;
-
             /* The partner in crime of the "apply" function above. This computes
              * one time step for one cell. What a messy declaration!
              */
-            void local_apply(const dealii::MatrixFree<dim,double> &data,
+            void local_apply(const dealii::MatrixFree<dim> &data,
                              dealii::parallel::distributed::Vector<double> &dst,
                              const dealii::parallel::distributed::Vector
                                     <double> &src,
                              const std::pair<unsigned int,
                                              unsigned int> &cell_range);
 
-            virtual void eval(dealii::FEEvaluationGL<dim, fe_degree> &fe_eval,
-                              dealii::VectorizedArray<double> &cur_val,
-                              dealii::Tensor<1, dim,
-                                dealii::VectorizedArray<double> > &grad_vel,
-                                unsigned int q) = 0;
+            virtual void eval(dealii::FEEvaluationGL<dim, fe_degree, dim> 
+                    &cur_eval, const unsigned int q) = 0;
+
+            ProblemData<dim>* pd;
+            Solution<dim>* soln;
+            dealii::parallel::distributed::Vector<double> inv_mass_matrix;
+            dealii::VectorizedArray<double> mu_dt;
+            dealii::VectorizedArray<double> one;
+            dealii::Tensor<1, dim, dealii::VectorizedArray<double> > tensor_one;
+
+            dealii::Tensor<1, dim, 
+                dealii::VectorizedArray<double> > cur_strs;
+            dealii::Tensor<1, dim, 
+                dealii::VectorizedArray<double> > old_strs;
+            dealii::Tensor<1, dim, 
+                dealii::VectorizedArray<double> > cur_grad_vel;
+            dealii::Tensor<1, dim, 
+                dealii::VectorizedArray<double> > old_grad_vel;
     };
 
 
@@ -86,7 +87,15 @@ namespace viscosaur
     {
         pd = &p_pd;
         dealii::TimerOutput::Scope t(pd->computing_timer, "setup_stress");
-        one = dealii::make_vectorized_array(1.);
+        one = dealii::make_vectorized_array(1.0);
+        for(int d = 0; d < dim; d++) 
+        {
+            for(unsigned int array_el = 0; array_el < 
+                    tensor_one[0].n_array_elements; array_el++)
+            {
+                tensor_one[d][array_el] = 1.0;
+            }
+        }
         compute_mass_matrix();
     }
 
@@ -96,18 +105,20 @@ namespace viscosaur
     StressOp<dim, fe_degree>::
     compute_mass_matrix()
     {
-        pd->matrix_free.initialize_dof_vector(inv_mass_matrix);
-        dealii::FEEvaluationGL<dim,fe_degree> fe_eval(pd->matrix_free);
+        // Integrate and invert the diagonal mass matrix resulting from the
+        // Gauss Lobatto Lagrange elements and quadrature match up.
+        pd->strs_matrix_free.initialize_dof_vector(inv_mass_matrix);
+        dealii::FEEvaluationGL<dim, fe_degree, dim> fe_eval(pd->strs_matrix_free);
         const unsigned int n_q_points = fe_eval.n_q_points;
 
         for(unsigned int cell=0; 
-            cell < pd->matrix_free.n_macro_cells();
+            cell < pd->strs_matrix_free.n_macro_cells();
             ++cell)
         {
             fe_eval.reinit(cell);
             for (unsigned int q = 0; q < n_q_points; ++q)
             {
-                fe_eval.submit_value(one, q);
+                fe_eval.submit_value(tensor_one, q);
             }
             fe_eval.integrate(true, false);
             fe_eval.distribute_local_to_global(inv_mass_matrix);
@@ -142,8 +153,7 @@ namespace viscosaur
         this->mu_dt = dealii::make_vectorized_array(shear_modulus * time_step);
         dst = 0;
         this->soln = &soln;
-        this->component = comp;
-        pd->matrix_free.cell_loop(&StressOp<dim,fe_degree>::local_apply,
+        pd->strs_matrix_free.cell_loop(&StressOp<dim,fe_degree>::local_apply,
                        this, dst, src);
         dst.scale(inv_mass_matrix);
     }
@@ -156,50 +166,41 @@ namespace viscosaur
                  const dealii::parallel::distributed::Vector<double> &input,
                  const std::pair<unsigned int,unsigned int> &cell_range)
     {
-        dealii::FEEvaluationGL<dim, fe_degree> current(data);
-        dealii::FEEvaluationGL<dim, fe_degree> old(current);
-        dealii::FEEvaluationGL<dim, fe_degree> old_vel(current);
-        dealii::FEEvaluationGL<dim, fe_degree> vel(current);
+        dealii::FEEvaluationGL<dim, fe_degree, dim> cur_eval(data);
+        dealii::FEEvaluationGL<dim, fe_degree, dim> old_eval(cur_eval);
+        dealii::FEEvaluationGL<dim, fe_degree> cur_vel(pd->vel_matrix_free);
+        dealii::FEEvaluationGL<dim, fe_degree> old_vel(cur_vel);
         for (unsigned int cell = cell_range.first;
              cell < cell_range.second; 
              ++cell)
         {
-            current.reinit(cell);
-            old.reinit(cell);
+            cur_eval.reinit(cell);
+            old_eval.reinit(cell);
+            cur_vel.reinit(cell);
             old_vel.reinit(cell);
-            vel.reinit(cell);
-            current.read_dof_values(input);
-            if (this->component == 0)
-            {
-                old.read_dof_values(this->soln->old_old_szx);
-            } else
-            {
-                old.read_dof_values(this->soln->old_old_szy);
-            }
-            vel.read_dof_values_plain(this->soln->cur_vel_for_strs);
+
+            cur_eval.read_dof_values(input);
+            old_eval.read_dof_values(this->soln->old_old_strs);
+            cur_vel.read_dof_values_plain(this->soln->cur_vel_for_strs);
             old_vel.read_dof_values_plain(this->soln->old_vel_for_strs);
-            current.evaluate(true, false, false);
-            old.evaluate(true, false, false);
+
+            cur_eval.evaluate(true, false, false);
+            old_eval.evaluate(true, false, false);
+            cur_vel.evaluate(false, true, false);
             old_vel.evaluate(false, true, false);
-            vel.evaluate(false, true, false);
 
-            for (unsigned int q=0; q < current.n_q_points; ++q)
+            for (unsigned int q=0; q < cur_eval.n_q_points; ++q)
             {
-                dealii::VectorizedArray<double> current_value = 
-                        current.get_value(q);
-                this->old_val = old.get_value(q);
-
-                dealii::Tensor<1, dim, 
-                      dealii::VectorizedArray<double> > grad_vel = 
-                        vel.get_gradient(q);
+                this->cur_strs = cur_eval.get_value(q);
+                this->old_strs = old_eval.get_value(q);
+                this->cur_grad_vel = cur_vel.get_gradient(q);
                 this->old_grad_vel = old_vel.get_gradient(q);
-
                 // Here's where you modify the time stepping!
-                eval(current, current_value, grad_vel, q);
+                eval(cur_eval, q);
             }
 
-            current.integrate(true, false);
-            current.distribute_local_to_global(output);
+            cur_eval.integrate(true, false);
+            cur_eval.distribute_local_to_global(output);
         }
     }
 }

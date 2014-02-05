@@ -73,7 +73,7 @@ namespace viscosaur
             << pd->triangulation.n_global_active_cells()
             << std::endl
             << "   Number of degrees of freedom: "
-            << pd->dof_handler.n_dofs()
+            << pd->vel_dof_handler.n_dofs()
             << std::endl;
     }
 
@@ -88,15 +88,15 @@ namespace viscosaur
 
         update_bc(bc, sch);
         CompressedSimpleSparsityPattern* csp = 
-            pd->create_sparsity_pattern(constraints);
+            pd->create_vel_sparsity_pattern(constraints);
         // Initialize the matrix, rhs and solution vectors.
         // Ax = b, 
         // where system_rhs is b, system_matrix is A, 
         // is A
-        system_rhs.reinit(pd->locally_owned_dofs, pd->mpi_comm);
+        system_rhs.reinit(pd->vel_locally_owned_dofs, pd->mpi_comm);
         system_rhs = 0;
-        system_matrix.reinit(pd->locally_owned_dofs,
-                             pd->locally_owned_dofs,
+        system_matrix.reinit(pd->vel_locally_owned_dofs,
+                             pd->vel_locally_owned_dofs,
                              *csp,
                              pd->mpi_comm);
         //GET RID OF MANUAL POINTER HANDLING!
@@ -106,15 +106,15 @@ namespace viscosaur
     template <int dim>
     void Velocity<dim>::update_bc(BoundaryCond<dim> &bc, Scheme<dim> &sch)
     {
-        constraints = *pd->create_constraints();
+        constraints = *pd->create_vel_constraints();
         Function<dim>* encapsulated_bc = sch.handle_bc(bc);
-        VectorTools::interpolate_boundary_values(pd->dof_handler,
+        VectorTools::interpolate_boundary_values(pd->vel_dof_handler,
                 0, *encapsulated_bc, constraints);
-        VectorTools::interpolate_boundary_values(pd->dof_handler,
+        VectorTools::interpolate_boundary_values(pd->vel_dof_handler,
                 1, *encapsulated_bc, constraints);
-        // VectorTools::interpolate_boundary_values(pd->dof_handler,
+        // VectorTools::interpolate_boundary_values(pd->vel_dof_handler,
         //         2, *encapsulated_bc, constraints);
-        VectorTools::interpolate_boundary_values(pd->dof_handler,
+        VectorTools::interpolate_boundary_values(pd->vel_dof_handler,
                 3, *encapsulated_bc, constraints);
         constraints.close();
     }
@@ -126,11 +126,15 @@ namespace viscosaur
     assemble_matrix(Solution<dim> &soln, Scheme<dim> &sch, double time_step)
     { 
         TimerOutput::Scope t(pd->computing_timer, "assem_mat");
-        FEValues<dim> fe_values(pd->fe, pd->quadrature, 
+        FEValues<dim> vel_fe_values(pd->vel_fe, pd->quadrature, 
                                 update_values | update_gradients | 
-                                update_quadrature_points | update_JxW_values); 
+                                update_JxW_values); 
 
-        const unsigned int   dofs_per_cell = pd->fe.dofs_per_cell;
+        FEValues<dim> strs_fe_values(pd->strs_fe, pd->quadrature, 
+                                update_gradients); 
+        const FEValuesExtractors::Vector strses(0);
+
+        const unsigned int   dofs_per_cell = pd->vel_fe.dofs_per_cell;
         const unsigned int   n_q_points    = pd->quadrature.size();
 
         FullMatrix<double> cell_matrix(dofs_per_cell, dofs_per_cell);
@@ -138,8 +142,8 @@ namespace viscosaur
         std::vector<types::global_dof_index> local_dof_indices(dofs_per_cell);
 
         typename DoFHandler<dim>::active_cell_iterator
-            cell = pd->dof_handler.begin_active(),
-            endc = pd->dof_handler.end();
+            cell = pd->vel_dof_handler.begin_active(),
+            endc = pd->vel_dof_handler.end();
 
         double value;
         const double shear_modulus = 
@@ -147,13 +151,17 @@ namespace viscosaur
         const double factor = sch.poisson_rhs_factor() / 
             (shear_modulus * time_step);
 
-        std::vector<Tensor<1, dim> > Szxgrad(n_q_points);
-        std::vector<Tensor<1, dim> > Szygrad(n_q_points);
+        std::vector<double> strs_div(n_q_points);
         std::vector<Tensor<1, dim> > grad(dofs_per_cell);
         std::vector<double> val(dofs_per_cell);
         double JxW;
         for (; cell!=endc; ++cell)
         {
+            typename DoFHandler<dim>::active_cell_iterator
+                  cell_strs (&pd->triangulation,
+                    cell->level(),
+                    cell->index(),
+                    &pd->strs_dof_handler);
             if (!cell->is_locally_owned())
             {
                 continue;
@@ -163,17 +171,20 @@ namespace viscosaur
             cell_matrix = 0;
             cell_rhs = 0;
 
-            fe_values.reinit(cell);
             cell->get_dof_indices(local_dof_indices);
-            fe_values.get_function_gradients(soln.tent_szx, Szxgrad);
-            fe_values.get_function_gradients(soln.tent_szy, Szygrad);
+
+            vel_fe_values.reinit(cell);
+
+            strs_fe_values.reinit(cell_strs);
+            strs_fe_values[strses].get_function_divergences(soln.tent_strs, 
+                                                            strs_div);
             for (unsigned int q = 0; q < n_q_points; ++q)
             {
-                JxW = fe_values.JxW(q);
+                JxW = vel_fe_values.JxW(q);
                 for (unsigned int i=0; i < dofs_per_cell; ++i)
                 {
-                    grad[i] = fe_values.shape_grad(i, q);
-                    val[i] = fe_values.shape_value(i, q);
+                    grad[i] = vel_fe_values.shape_grad(i, q);
+                    val[i] = vel_fe_values.shape_value(i, q);
                 }
                 // This pair of loops is symmetric. I cut the assembly
                 // cost in half by taking advantage of this.
@@ -187,8 +198,7 @@ namespace viscosaur
                         // element and the size of the element
                         cell_matrix(i,j) += grad[i] * grad[j] * JxW;
                     } 
-                    cell_rhs(i) += factor * JxW * 
-                        (Szxgrad[q][0] + Szygrad[q][1]) * val[i];
+                    cell_rhs(i) += factor * JxW * strs_div[q] * val[i];
                 } 
 
             }
@@ -220,11 +230,11 @@ namespace viscosaur
     {
         TimerOutput::Scope t(pd->computing_timer, "solve");
         LA::MPI::Vector
-            completely_distributed_solution(pd->locally_owned_dofs,
+            completely_distributed_solution(pd->vel_locally_owned_dofs,
                                              pd->mpi_comm);
 
         const double tol = 1e-8 * system_rhs.l2_norm();
-        SolverControl solver_control(pd->dof_handler.n_dofs(), tol);
+        SolverControl solver_control(pd->vel_dof_handler.n_dofs(), tol);
 
         LA::SolverCG solver(solver_control, pd->mpi_comm);
         LA::MPI::PreconditionAMG preconditioner;
@@ -247,17 +257,9 @@ namespace viscosaur
 
         constraints.distribute(completely_distributed_solution);
 
-        //TODO: BAD!!!!
         sch.handle_poisson_soln(soln, completely_distributed_solution);
-        // // if (soln.step_index == 1)
-        // // {
-        // //     soln.cur_vel = temp;
-        // // }
-        // // else
-        // // {
-        //     soln.cur_vel = soln.old_vel;
-        //     soln.cur_vel += soln.poisson_soln;
-        // // }
+        //TODO: BAD!!!! Get rid of the two places that the same data is stored.
+        //Super bad practice
         soln.cur_vel_for_strs = soln.cur_vel;
     }
 

@@ -13,11 +13,9 @@ namespace viscosaur
             BDFTwoTentOp(ProblemData<dim> &p_pd)
             {this->init(p_pd);}
 
-            virtual void eval(dealii::FEEvaluationGL<dim, fe_degree> &fe_eval,
-                              dealii::VectorizedArray<double> &cur_val,
-                              dealii::Tensor<1, dim,
-                                dealii::VectorizedArray<double> > &grad_vel,
-                                unsigned int q);
+            virtual void eval(
+                    dealii::FEEvaluationGL<dim, fe_degree, dim> &cur_eval,
+                    const unsigned int q);
     };
 
     template <int dim, int fe_degree>
@@ -27,12 +25,10 @@ namespace viscosaur
             BDFTwoCorrOp(ProblemData<dim> &p_pd)
             {this->init(p_pd);}
 
-            virtual void eval(dealii::FEEvaluationGL<dim, fe_degree> &fe_eval,
-                              dealii::VectorizedArray<double> &cur_val,
-                              dealii::Tensor<1, dim,
-                                dealii::VectorizedArray<double> > &grad_vel,
-                                unsigned int q);
-
+            virtual void eval(
+                    dealii::FEEvaluationGL<dim, fe_degree, dim> &cur_eval,
+                    const unsigned int q);
+ 
     };
 
     template <int dim>
@@ -110,76 +106,98 @@ namespace viscosaur
 
 
     template <int dim, int fe_degree>
-    void 
+    void
     BDFTwoTentOp<dim, fe_degree>::
-    eval(dealii::FEEvaluationGL<dim, fe_degree> &fe_eval,
-          dealii::VectorizedArray<double> &cur_val,
-          dealii::Tensor<1, dim,
-            dealii::VectorizedArray<double> > &grad_vel,
-         unsigned int q)
+    eval(dealii::FEEvaluationGL<dim, fe_degree, dim> &cur_eval,
+         const unsigned int q)
     {
-        dealii::VectorizedArray<double> output;
-        const unsigned int iter_max = 50;
-        dealii::Point<dim, double> p;
-        double f_val, fp_val, iv, ivd;
+        dealii::VectorizedArray<double> one_pt_five =
+            dealii::make_vectorized_array(1.5);
+        dealii::VectorizedArray<double> two = 
+            dealii::make_vectorized_array(2.0);
+        dealii::VectorizedArray<double> pt_five =
+            dealii::make_vectorized_array(0.5);
+
+        dealii::Point<dim, dealii::VectorizedArray<double> > p = 
+            cur_eval.quadrature_point(q);
+
+        dealii::Tensor<1, dim, dealii::VectorizedArray<double> > f_val, fp_val;
+        dealii::VectorizedArray<double> iv, ivd;
+        dealii::Tensor<1, dim, dealii::VectorizedArray<double> > guess
+            = this->cur_strs;
+
+        const unsigned int iter_max = 30;
         const double abs_tol = 1e-6;
-        for(unsigned int array_el = 0; array_el < 
-                cur_val.n_array_elements; array_el++)
+        double rel_tol = 0;
+        for(int d = 0; d < dim; d++) 
         {
-            double guess = cur_val[array_el];
-            const double rel_tol = 1e-9 * abs(cur_val[array_el]);
+            for(unsigned int array_el = 0; array_el < 
+                    guess[0].n_array_elements; array_el++)
+            {
+                rel_tol += 1e-9 * abs(guess[d][array_el]);
+            }
+        }
+
+
+        for(unsigned int iter = 0; iter < iter_max; iter++)
+        {
+            //Replace this with a generic fnc call.
+            iv = this->pd->inv_visc->value(p, guess);
+            //Calculate the current value of the function.
+            f_val = (one_pt_five * guess - two * this->cur_strs + 
+                        pt_five * this->old_strs) + 
+                this->mu_dt * iv * guess -
+                this->mu_dt * this->old_grad_vel;
+
+            // std::cout << "Guess " << iter << ":" << guess << std::endl << 
+            //     "     with residual: " << f_val << std::endl <<
+            //     "     and tolerance: " << rel_tol << std::endl <<
+            //     "     and cur: " << cur_val[array_el] << std::endl <<
+            //     "     and old: " << this->old_val[array_el] << std::endl;
+            double residual = 0; 
             for(int d = 0; d < dim; d++) 
             {
-                p[d] = fe_eval.quadrature_point(q)[d][array_el];
-            }
-            for(unsigned int iter = 0; iter < iter_max; iter++)
-            {
-                //Replace this with a generic fnc call.
-                iv = this->pd->inv_visc->value(p, guess);
-                //Calculate the current value of the function.
-                f_val = (1.5 * guess - 2 * cur_val[array_el] + 
-                            0.5 * this->old_val[array_el]) + 
-                    this->mu_dt[array_el] * iv * guess -
-                    this->mu_dt[array_el] * 
-                        this->old_grad_vel[this->component][array_el];
-
-                // std::cout << "Guess " << iter << ":" << guess << std::endl << 
-                //     "     with residual: " << f_val << std::endl <<
-                //     "     and tolerance: " << rel_tol << std::endl <<
-                //     "     and cur: " << cur_val[array_el] << std::endl <<
-                //     "     and old: " << this->old_val[array_el] << std::endl;
-                if ((abs(f_val) < rel_tol) || (abs(f_val) < abs_tol))
+                for(unsigned int array_el = 0; array_el < 
+                        guess[0].n_array_elements; array_el++)
                 {
-                    // std::cout << "Convergence!" << std::endl;
-                    break;
+                    residual += 1e-9 * abs(f_val[d][array_el]);
                 }
-                //Replace this with a generic fnc call.
-                //Calculate the current derivative of the function.
-                ivd = this->pd->inv_visc->strs_deriv(p, guess);
-                fp_val = 1.5 + 
-                    this->mu_dt[array_el] * (iv + guess * ivd);
-                guess -= f_val / fp_val;
             }
-            output[array_el] = guess;
+            if ((residual < rel_tol) || (residual < abs_tol))
+            {
+                // std::cout << "Convergence!" << std::endl;
+                break;
+            }
+            //Replace this with a generic fnc call.
+            //Calculate the current derivative of the function.
+            //TODO: FIGURE OUT IVD
+            ivd = this->pd->inv_visc->strs_deriv(p, guess);
+
+            fp_val = one_pt_five * this->tensor_one + 
+                this->mu_dt * (iv * this->tensor_one + guess * ivd);
+            for(int d = 0; d < dim; d++) 
+            {
+                for(unsigned int array_el = 0; array_el < 
+                        guess[0].n_array_elements; array_el++)
+                {
+                    guess[d][array_el] -= f_val[d][array_el] /
+                        fp_val[d][array_el];
+                }
+            }
         }
-        fe_eval.submit_value(output, q);
+        cur_eval.submit_value(guess, q);
     }
 
 
 
     template <int dim, int fe_degree>
-    void 
+    void
     BDFTwoCorrOp<dim, fe_degree>::
-    eval(dealii::FEEvaluationGL<dim, fe_degree> &fe_eval,
-          dealii::VectorizedArray<double> &cur_val,
-          dealii::Tensor<1, dim,
-            dealii::VectorizedArray<double> > &grad_vel,
-         unsigned int q)
-
+    eval(dealii::FEEvaluationGL<dim, fe_degree, dim> &cur_eval,
+         const unsigned int q)
     {
-        fe_eval.submit_value(cur_val + (2.0 / 3.0) * 
-                this->mu_dt * (grad_vel[this->component] -
-                    this->old_grad_vel[this->component]), q);
+        cur_eval.submit_value(this->cur_strs + (2.0 / 3.0) * this->mu_dt * 
+            (this->cur_grad_vel - this->old_grad_vel), q);
     }
 }
 #endif

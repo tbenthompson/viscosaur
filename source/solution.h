@@ -21,11 +21,9 @@ namespace viscosaur
 
             void reinit();
 
-            void apply_init_cond(dealii::Function<dim> &init_szx,
-                                 dealii::Function<dim> &init_szy,
+            void apply_init_cond(dealii::Function<dim> &init_strs,
                                  dealii::Function<dim> &init_vel);
-            void init_multistep(dealii::Function<dim> &init_szx,
-                                dealii::Function<dim> &init_szy,
+            void init_multistep(dealii::Function<dim> &init_strs,
                                 dealii::Function<dim> &init_vel);
 
             void output(std::string data_dir,
@@ -34,23 +32,14 @@ namespace viscosaur
 
             void start_timestep();
 
-            dealii::parallel::distributed::SolutionTransfer<dim, 
-                dealii::parallel::distributed::Vector<double> >*
-                    start_refine();
+            void start_refine();
 
-            void post_refine(
-                    dealii::parallel::distributed::SolutionTransfer<dim, 
-                        dealii::parallel::distributed::Vector<double> >*
-                    sol_trans);
+            void post_refine(Solution<dim> &soln);
 
-            dealii::parallel::distributed::Vector<double> cur_szx;
-            dealii::parallel::distributed::Vector<double> cur_szy;
-            dealii::parallel::distributed::Vector<double> tent_szx;
-            dealii::parallel::distributed::Vector<double> tent_szy;
-            dealii::parallel::distributed::Vector<double> old_szx;
-            dealii::parallel::distributed::Vector<double> old_szy;
-            dealii::parallel::distributed::Vector<double> old_old_szx;
-            dealii::parallel::distributed::Vector<double> old_old_szy;
+            dealii::parallel::distributed::Vector<double> cur_strs;
+            dealii::parallel::distributed::Vector<double> tent_strs;
+            dealii::parallel::distributed::Vector<double> old_strs;
+            dealii::parallel::distributed::Vector<double> old_old_strs;
 
             dealii::parallel::distributed::Vector<double> cur_vel;
             dealii::parallel::distributed::Vector<double> cur_vel_for_strs;
@@ -59,6 +48,8 @@ namespace viscosaur
             dealii::parallel::distributed::Vector<double> old_vel_for_strs;
 
             ProblemData<dim>* pd;
+            std::vector<dealii::parallel::distributed::SolutionTransfer<dim, 
+                    dealii::parallel::distributed::Vector<double> >* > sol_trans;
     };
 }
 #endif

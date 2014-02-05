@@ -73,11 +73,11 @@ namespace viscosaur
     //For efficiency, I could move the TLA behavior into these classes.
     //or at least write separate functions for Szx and Szy
     template <int dim>
-    class InitSzx: public dealii::Function<dim>
+    class InitStress: public dealii::Function<dim>
     {
         public:
-            InitSzx(TwoLayerAnalytic &p_tla): 
-                dealii::Function<dim>(1)
+            InitStress(TwoLayerAnalytic &p_tla): 
+                dealii::Function<dim>(dim)
             {
                 tla = &p_tla;
             } 
@@ -85,18 +85,24 @@ namespace viscosaur
             virtual double value (const dealii::Point<dim>   &p,
                                   const unsigned int  component) const
             {
-                return tla->integral_Szx(p(0), p(1));
+                if (component == 0)
+                {
+                    return tla->integral_Szx(p(0), p(1));
+                } else
+                {
+                    return tla->integral_Szy(p(0), p(1));
+                }
             }
         private:
             TwoLayerAnalytic* tla;
     };
 
     template <int dim>
-    class InitSzy: public dealii::Function<dim>
+    class SimpleInitStress: public dealii::Function<dim>
     {
         public:
-            InitSzy(TwoLayerAnalytic &p_tla): 
-                dealii::Function<dim>(1)
+            SimpleInitStress(TwoLayerAnalytic &p_tla): 
+                dealii::Function<dim>(dim)
             {
                 tla = &p_tla;
             } 
@@ -104,45 +110,13 @@ namespace viscosaur
             virtual double value (const dealii::Point<dim>   &p,
                                   const unsigned int  component) const
             {
-                return tla->integral_Szy(p(0), p(1));
-            }
-        private:
-            TwoLayerAnalytic* tla;
-    };
-
-    template <int dim>
-    class SimpleInitSzx: public dealii::Function<dim>
-    {
-        public:
-            SimpleInitSzx(TwoLayerAnalytic &p_tla): 
-                dealii::Function<dim>(1)
-            {
-                tla = &p_tla;
-            } 
-
-            virtual double value (const dealii::Point<dim>   &p,
-                                  const unsigned int  component) const
-            {
-                return tla->simple_Szx(p(0), p(1));
-            }
-        private:
-            TwoLayerAnalytic* tla;
-    };
-
-    template <int dim>
-    class SimpleInitSzy: public dealii::Function<dim>
-    {
-        public:
-            SimpleInitSzy(TwoLayerAnalytic &p_tla): 
-                dealii::Function<dim>(1)
-            {
-                tla = &p_tla;
-            } 
-
-            virtual double value (const dealii::Point<dim>   &p,
-                                  const unsigned int  component) const
-            {
-                return tla->simple_Szy(p(0), p(1));
+                if (component == 0)
+                {
+                    return tla->simple_Szx(p(0), p(1));
+                } else
+                {
+                    return tla->simple_Szy(p(0), p(1));
+                }
             }
         private:
             TwoLayerAnalytic* tla;

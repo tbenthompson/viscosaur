@@ -26,10 +26,10 @@ def step(soln, strs_solver, vel_solver, scheme, time_step):
 
 def refine(pd, soln, strs_solver, vel_solver, scheme):
     pd.start_refine(soln.current_velocity)
-    sol_trans = soln.start_refine()
+    soln.start_refine()
     pd.execute_refine()
     soln.reinit()
-    soln.post_refine(sol_trans)
+    soln.post_refine(soln)
     scheme.reinit(pd);
     vel_solver.reinit(pd, soln, vel_bc, scheme)
     strs_solver.reinit(pd);
@@ -59,8 +59,7 @@ tla = vc.TwoLayerAnalytic(params['fault_slip'],
                           params['fault_depth'],
                           params['shear_modulus'],
                           params['viscosity'], sf)
-init_szx = vc.SimpleInitSzx2D(tla)
-init_szy = vc.SimpleInitSzy2D(tla)
+init_strs = vc.SimpleInitStress2D(tla)
 init_vel = vc.SimpleVelocity2D(tla)
 init_vel.set_t(0.0)
 exact_vel = vc.SimpleVelocity2D(tla)
@@ -79,7 +78,7 @@ if not params["load_mesh"]:
     time_step = params['time_step'] / sub_timesteps
     vel_bc.set_t(params['time_step'] / sub_timesteps)
     for i in range(params['initial_adaptive_refines']):
-        soln.apply_init_cond(init_szx, init_szy, init_vel)
+        soln.apply_init_cond(init_strs, init_vel)
         step(soln, strs_solver, vel_solver, scheme, time_step)
         soln.output(params['data_dir'], 'init_refinement_' + str(i) + '.',
                     vel_bc)
@@ -87,7 +86,7 @@ if not params["load_mesh"]:
     c.proc0_out("Done with first time step spatial adaptation.")
     pd.save_mesh("saved_mesh.msh")
 
-soln.apply_init_cond(init_szx, init_szy, init_vel)
+soln.apply_init_cond(init_strs, init_vel)
 t = 0
 i = 1
 while t < params['t_max']:
@@ -106,7 +105,7 @@ while t < params['t_max']:
     if i == 1:
         # At the end of the first time step, we switch to using a BDF2 scheme
         sub_timesteps = 1
-        soln.init_multistep(init_szx, init_szy, init_vel)
+        soln.init_multistep(init_strs, init_vel)
         scheme = vc.BDFTwo2D(pd)
     i += 1
 

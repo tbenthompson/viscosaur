@@ -17,17 +17,20 @@ namespace viscosaur
             virtual dealii::VectorizedArray<double>
                 value(const dealii::Point<
                         dim, dealii::VectorizedArray<double> > &p,
-                      const dealii::VectorizedArray<double> &strs) const
+                      const dealii::Tensor<1, dim, 
+                        dealii::VectorizedArray<double> > &strs) const
             {
                 dealii::VectorizedArray<double> retval; 
                 for(int i = 0; i < p[0].n_array_elements; i++) 
                 {
                     dealii::Point<dim, double> newp;
+                    dealii::Tensor<1, dim> indv_strs;
                     for(int d = 0; d < dim; d++) 
                     {
                         newp[d] = p[d][i];
+                        indv_strs[d] = strs[d][i];
                     }
-                    retval.data[i] = value(newp, strs[i]);
+                    retval.data[i] = value(newp, indv_strs);
                 }
                 return retval;
             }
@@ -35,29 +38,32 @@ namespace viscosaur
             virtual dealii::VectorizedArray<double>
                 strs_deriv(const dealii::Point<
                         dim, dealii::VectorizedArray<double> > &p,
-                      const dealii::VectorizedArray<double> &strs) const
+                      const dealii::Tensor<1, dim, 
+                        dealii::VectorizedArray<double> > &strs) const
             {
                 dealii::VectorizedArray<double> retval; 
                 for(int i = 0; i < p[0].n_array_elements; i++) 
                 {
                     dealii::Point<dim, double> newp;
+                    dealii::Tensor<1, dim> indv_strs;
                     for(int d = 0; d < dim; d++) 
                     {
                         newp[d] = p[d][i];
+                        indv_strs[d] = strs[d][i];
                     }
-                    retval.data[i] = strs_deriv(newp, strs[i]);
+                    retval.data[i] = strs_deriv(newp, indv_strs);
                 }
                 return retval;
             }
 
             virtual double value(const dealii::Point<dim>  &p,
-                                 const double strs) const = 0;
+                                 const dealii::Tensor<1, dim> strs) const = 0;
 
             /* Derivative of the inverse viscosity function with respect to the
              * stress. Useful for any sort of iterative solver for the ode.
              */
             virtual double strs_deriv(const dealii::Point<dim>  &p,
-                                 const double strs) const = 0;
+                                 const dealii::Tensor<1, dim> strs) const = 0;
     };
 
     template <int dim>
@@ -73,7 +79,7 @@ namespace viscosaur
             }
 
             virtual double value(const dealii::Point<dim>  &p,
-                                 const double strs) const
+                                 const dealii::Tensor<1, dim> strs) const
             {
                 if (p(1) < layer_depth)
                 {
@@ -86,7 +92,7 @@ namespace viscosaur
              * stress.
              */
             virtual double strs_deriv(const dealii::Point<dim>  &p,
-                                 const double strs) const
+                                 const dealii::Tensor<1, dim> strs) const
             {
                 return 0;
             }

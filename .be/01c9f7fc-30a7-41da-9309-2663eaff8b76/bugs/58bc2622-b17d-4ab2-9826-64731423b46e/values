@@ -1,0 +1,50 @@
+{
+
+
+
+
+
+
+    "creator": "Ben Thompson <t.ben.thompson@gmail.com>", 
+
+
+
+
+
+
+    "reporter": "Ben Thompson <t.ben.thompson@gmail.com>", 
+
+
+
+
+
+
+    "severity": "minor", 
+
+
+
+
+
+
+    "status": "open", 
+
+
+
+
+
+
+    "summary": "Think about using integration by parts to the rhs to remove the extra derivative on the stress.", 
+
+
+
+
+
+
+    "time": "Tue, 04 Feb 2014 23:31:59 +0000"
+
+
+
+
+
+
+}

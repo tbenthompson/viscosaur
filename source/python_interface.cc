@@ -47,9 +47,6 @@ BOOST_PYTHON_MODULE(viscosaur)
     class_<dealii::PETScWrappers::MPI::Vector>("PETScVector", no_init);
     class_<dealii::DoFHandler<2>, boost::noncopyable>("DoFHander2D", no_init);
     class_<dealii::parallel::distributed::Vector<double> >("MPIVector", no_init);
-    class_<dealii::parallel::distributed::SolutionTransfer<2,
-            dealii::parallel::distributed::Vector<double> >, boost::noncopyable>
-            ("SolutionTransfer2D", no_init);
     
 
     /* Basic viscosaur functions.
@@ -84,22 +81,14 @@ BOOST_PYTHON_MODULE(viscosaur)
     /* Initial conditions functions.
      * Note the three "> > >" -- these must be separated by a space
      */
-    class_<vc::InitSzx<2>, bases<dealii::Function<2> > >
-        ("InitSzx2D", init<vc::TwoLayerAnalytic&>()
+    class_<vc::InitStress<2>, bases<dealii::Function<2> > >
+        ("InitStress2D", init<vc::TwoLayerAnalytic&>()
             [with_custodian_and_ward<1,2>()])
-        .def("value", &vc::InitSzx<2>::value);
-    class_<vc::InitSzy<2>, bases<dealii::Function<2> > >
-        ("InitSzy2D", init<vc::TwoLayerAnalytic&>()
+        .def("value", &vc::InitStress<2>::value);
+    class_<vc::SimpleInitStress<2>, bases<dealii::Function<2> > >
+        ("SimpleInitStress2D", init<vc::TwoLayerAnalytic&>()
             [with_custodian_and_ward<1,2>()])
-        .def("value", &vc::InitSzy<2>::value);
-    class_<vc::SimpleInitSzx<2>, bases<dealii::Function<2> > >
-        ("SimpleInitSzx2D", init<vc::TwoLayerAnalytic&>()
-            [with_custodian_and_ward<1,2>()])
-        .def("value", &vc::InitSzx<2>::value);
-    class_<vc::SimpleInitSzy<2>, bases<dealii::Function<2> > >
-        ("SimpleInitSzy2D", init<vc::TwoLayerAnalytic&>()
-            [with_custodian_and_ward<1,2>()])
-        .def("value", &vc::InitSzy<2>::value);
+        .def("value", &vc::SimpleInitStress<2>::value);
     class_<vc::ExactVelocity<2>, bases<dealii::Function<2> > >
         ("ExactVelocity2D", init<vc::TwoLayerAnalytic&>()
             [with_custodian_and_ward<1,2>()])
@@ -127,8 +116,7 @@ BOOST_PYTHON_MODULE(viscosaur)
         .def("reinit", &vc::Solution<2>::reinit)
         .def("output", &vc::Solution<2>::output)
         .def("start_timestep", &vc::Solution<2>::start_timestep)
-        .def("start_refine", &vc::Solution<2>::start_refine,
-                return_value_policy<manage_new_object>())
+        .def("start_refine", &vc::Solution<2>::start_refine)
         .def("post_refine", &vc::Solution<2>::post_refine)
         .def_readonly("current_velocity", &vc::Solution<2>::cur_vel);
 

@@ -17,11 +17,8 @@ namespace viscosaur
         public:
             FwdEulerTentOp(ProblemData<dim> &p_pd)
             {this->init(p_pd);}
-            virtual void eval(dealii::FEEvaluationGL<dim, fe_degree> &fe_eval,
-                              dealii::VectorizedArray<double> &cur_val,
-                              dealii::Tensor<1, dim,
-                                dealii::VectorizedArray<double> > &grad_vel,
-                                unsigned int q);
+            virtual void eval(dealii::FEEvaluationGL<dim, fe_degree, dim> &cur_eval,
+                 const unsigned int q);
     };
 
     template <int dim, int fe_degree>
@@ -30,11 +27,8 @@ namespace viscosaur
         public:
             FwdEulerCorrOp(ProblemData<dim> &p_pd)
             {this->init(p_pd);}
-            virtual void eval(dealii::FEEvaluationGL<dim, fe_degree> &fe_eval,
-                              dealii::VectorizedArray<double> &cur_val,
-                              dealii::Tensor<1, dim,
-                                dealii::VectorizedArray<double> > &grad_vel,
-                                unsigned int q);
+            virtual void eval(dealii::FEEvaluationGL<dim, fe_degree, dim> &cur_eval,
+                 const unsigned int q);
     };
 
     template <int dim>
@@ -77,28 +71,24 @@ namespace viscosaur
     template <int dim, int fe_degree>
     void 
     FwdEulerTentOp<dim, fe_degree>::
-    eval(dealii::FEEvaluationGL<dim, fe_degree> &fe_eval,
-          dealii::VectorizedArray<double> &cur_val,
-          dealii::Tensor<1, dim,
-            dealii::VectorizedArray<double> > &grad_vel,
-         unsigned int q)
+    eval(dealii::FEEvaluationGL<dim, fe_degree, dim> &cur_eval,
+         const unsigned int q)
     {
         const dealii::VectorizedArray<double> factor = 
-            this->mu_dt * this->pd->inv_visc->value(fe_eval.quadrature_point(q), cur_val);
-        fe_eval.submit_value((this->one - factor) * cur_val, q);
+            this->mu_dt * this->pd->inv_visc->value(
+                    cur_eval.quadrature_point(q), this->cur_strs);
+        const dealii::Tensor<1, dim, dealii::VectorizedArray<double> > out =
+            (this->one - factor) * this->cur_strs;
+        cur_eval.submit_value(out, q);
     }
 
     template <int dim, int fe_degree>
     void 
     FwdEulerCorrOp<dim, fe_degree>::
-    eval(dealii::FEEvaluationGL<dim, fe_degree> &fe_eval,
-          dealii::VectorizedArray<double> &cur_val,
-          dealii::Tensor<1, dim,
-            dealii::VectorizedArray<double> > &grad_vel,
-         unsigned int q)
+    eval(dealii::FEEvaluationGL<dim, fe_degree, dim> &cur_eval,
+         const unsigned int q)
     {
-        fe_eval.submit_value(cur_val + 
-                this->mu_dt * grad_vel[this->component], q);
+        cur_eval.submit_value(this->cur_strs + this->mu_dt * this->cur_grad_vel, q);
     }
 
 }
