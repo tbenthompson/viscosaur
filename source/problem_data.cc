@@ -143,7 +143,7 @@ namespace viscosaur
     {
         // Return a constraint matrix that just contains hanging nodes,
         // no boundary conditions included.
-        return new ConstraintMatrix(strs_hanging_node_constraints);
+        return new ConstraintMatrix(vel_hanging_node_constraints);
     }
 
     template <int dim>
@@ -153,7 +153,7 @@ namespace viscosaur
     {
         // Return a constraint matrix the just contains hanging nodes,
         // no boundary conditions included.
-        return new ConstraintMatrix(vel_hanging_node_constraints);
+        return new ConstraintMatrix(strs_hanging_node_constraints);
     }
 
     template <int dim>

@@ -129,6 +129,12 @@ namespace viscosaur
         data_out.add_data_vector(pd->vel_dof_handler, cur_vel, "vel");
         data_out.add_data_vector(pd->vel_dof_handler, poisson_soln, "poisson_soln");
 
+        // Output the stresses.
+        std::vector<std::string> old_solution_names(2);
+        old_solution_names[0] = "old_szx";
+        old_solution_names[1] = "old_szy";
+        //Current stresses
+        data_out.add_data_vector(pd->strs_dof_handler, old_strs, old_solution_names);
 
         // Output the stresses.
         std::vector<std::string> cur_solution_names(2);
