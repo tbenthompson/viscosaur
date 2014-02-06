@@ -131,11 +131,17 @@ namespace viscosaur
                                 update_JxW_values); 
 
         FEValues<dim> strs_fe_values(pd->strs_fe, pd->quadrature, 
-                                update_gradients); 
+                                update_values); 
+
+        FEFaceValues<dim> fe_face_values(pd->vel_fe, pd->face_quad,
+                                  update_values | update_quadrature_points |
+                                  update_normal_vectors | update_JxW_values);
+
         const FEValuesExtractors::Vector strses(0);
 
         const unsigned int   dofs_per_cell = pd->vel_fe.dofs_per_cell;
         const unsigned int   n_q_points    = pd->quadrature.size();
+        const unsigned int n_face_q_points = pd->face_quad.size();
 
         FullMatrix<double> cell_matrix(dofs_per_cell, dofs_per_cell);
         Vector<double> cell_rhs(dofs_per_cell);
@@ -151,7 +157,7 @@ namespace viscosaur
         const double factor = sch.poisson_rhs_factor() / 
             (shear_modulus * time_step);
 
-        std::vector<double> strs_div(n_q_points);
+        std::vector<Tensor<1, dim> > strs_val(n_q_points);
         std::vector<Tensor<1, dim> > grad(dofs_per_cell);
         std::vector<double> val(dofs_per_cell);
         double JxW;
@@ -176,8 +182,8 @@ namespace viscosaur
             vel_fe_values.reinit(cell);
 
             strs_fe_values.reinit(cell_strs);
-            strs_fe_values[strses].get_function_divergences(soln.tent_strs, 
-                                                            strs_div);
+            strs_fe_values[strses].get_function_values(soln.tent_strs, 
+                                                            strs_val);
             for (unsigned int q = 0; q < n_q_points; ++q)
             {
                 JxW = vel_fe_values.JxW(q);
@@ -198,13 +204,40 @@ namespace viscosaur
                         // element and the size of the element
                         cell_matrix(i,j) += grad[i] * grad[j] * JxW;
                     } 
-                    cell_rhs(i) += factor * JxW * strs_div[q] * val[i];
+                    cell_rhs(i) -= factor * strs_val[q] * grad[i] * JxW; 
                 } 
 
             }
             for (unsigned int i=0; i<dofs_per_cell; ++i)
                 for (unsigned int j=i+1; j<dofs_per_cell; ++j)
                     cell_matrix(i, j) = cell_matrix(j, i);
+
+
+            // Compute the contribution of the face terms resulting from the
+            // integration by parts of the divergence on the rhs
+            for (unsigned int face = 0; 
+                    face < GeometryInfo<dim>::faces_per_cell; 
+                    ++face)
+            {
+                if (!cell->face(face)->at_boundary())
+                {
+                    continue;
+                }
+                fe_face_values.reinit (cell, face);
+                for (unsigned int q= 0; q< n_face_q_points; ++q)
+                {
+                    const double surf_rhs_value
+                        = factor * strs_val[q] * 
+                            fe_face_values.normal_vector(q);
+                    for (unsigned int i=0; i < dofs_per_cell; ++i)
+                    {
+                        cell_rhs(i) += (surf_rhs_value *
+                            fe_face_values.shape_value(i, q) *
+                            fe_face_values.JxW(q));
+                    }
+                }
+            }
+
             constraints.distribute_local_to_global(cell_matrix, cell_rhs,
                                                    local_dof_indices,
                                                    system_matrix, system_rhs);
