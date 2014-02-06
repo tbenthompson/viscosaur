@@ -181,8 +181,8 @@ namespace viscosaur
 
             cur_eval.read_dof_values(input);
             old_eval.read_dof_values(this->soln->old_old_strs);
-            cur_vel.read_dof_values_plain(this->soln->cur_vel_for_strs);
-            old_vel.read_dof_values_plain(this->soln->old_vel_for_strs);
+            cur_vel.read_dof_values_plain(this->soln->cur_vel);
+            old_vel.read_dof_values_plain(this->soln->old_vel);
 
             cur_eval.evaluate(true, false, false);
             old_eval.evaluate(true, false, false);

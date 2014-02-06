@@ -291,9 +291,6 @@ namespace viscosaur
         constraints.distribute(completely_distributed_solution);
 
         sch.handle_poisson_soln(soln, completely_distributed_solution);
-        //TODO: BAD!!!! Get rid of the two places that the same data is stored.
-        //Super bad practice
-        soln.cur_vel_for_strs = soln.cur_vel;
     }
 
 

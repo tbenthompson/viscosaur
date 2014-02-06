@@ -42,10 +42,8 @@ namespace viscosaur
             dealii::parallel::distributed::Vector<double> old_old_strs;
 
             dealii::parallel::distributed::Vector<double> cur_vel;
-            dealii::parallel::distributed::Vector<double> cur_vel_for_strs;
             dealii::parallel::distributed::Vector<double> poisson_soln;
             dealii::parallel::distributed::Vector<double> old_vel;
-            dealii::parallel::distributed::Vector<double> old_vel_for_strs;
 
             ProblemData<dim>* pd;
             std::vector<dealii::parallel::distributed::SolutionTransfer<dim, 

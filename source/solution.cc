@@ -26,19 +26,15 @@ namespace viscosaur
     Solution<dim>::
     reinit()
     {
-        cur_vel.reinit(pd->vel_locally_owned_dofs,
-            pd->vel_locally_relevant_dofs, pd->mpi_comm);
         poisson_soln.reinit(pd->vel_locally_owned_dofs,
-            pd->vel_locally_relevant_dofs, pd->mpi_comm);
-        old_vel.reinit(pd->vel_locally_owned_dofs,
             pd->vel_locally_relevant_dofs, pd->mpi_comm);
 
         pd->strs_matrix_free.initialize_dof_vector(cur_strs);
         old_strs.reinit(cur_strs);
         old_old_strs.reinit(cur_strs);
         tent_strs.reinit(cur_strs);
-        pd->vel_matrix_free.initialize_dof_vector(cur_vel_for_strs);
-        pd->vel_matrix_free.initialize_dof_vector(old_vel_for_strs);
+        pd->vel_matrix_free.initialize_dof_vector(cur_vel);
+        pd->vel_matrix_free.initialize_dof_vector(old_vel);
     }
 
     template <int dim>
@@ -50,7 +46,6 @@ namespace viscosaur
         TimerOutput::Scope t(pd->computing_timer, "init_cond");
         VectorTools::interpolate(pd->strs_dof_handler, init_strs, cur_strs);
         VectorTools::interpolate(pd->vel_dof_handler, init_vel, cur_vel);
-        cur_vel_for_strs = cur_vel;
     }
 
     template <int dim>
@@ -62,7 +57,6 @@ namespace viscosaur
         TimerOutput::Scope t(pd->computing_timer, "init_cond");
         VectorTools::interpolate(pd->strs_dof_handler, init_strs, old_strs);
         VectorTools::interpolate(pd->vel_dof_handler, init_vel, old_vel);
-        old_vel_for_strs = old_vel;
     }
 
     template <int dim>
@@ -74,7 +68,6 @@ namespace viscosaur
         old_old_strs.swap(old_strs);
         old_strs.swap(cur_strs);
         old_vel.swap(cur_vel);
-        old_vel_for_strs.swap(cur_vel_for_strs);
     }
 
     template <int dim>
@@ -225,12 +218,13 @@ namespace viscosaur
         std::vector<parallel::distributed::Vector<double>* > vel_vecs(1);
         vel_vecs[0] = &cur_vel;
         soln.sol_trans[0]->interpolate(vel_vecs);
-        cur_vel_for_strs = cur_vel;
 
         std::vector<parallel::distributed::Vector<double>* > strs_vecs(2);
         strs_vecs[0] = &cur_strs;
         strs_vecs[1] = &old_strs;
         soln.sol_trans[1]->interpolate(strs_vecs);
+        delete soln.sol_trans[0];
+        delete soln.sol_trans[1];
     }
 
     template class Solution<2>;
