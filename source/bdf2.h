@@ -10,9 +10,6 @@ namespace viscosaur
     class BDFTwoTentOp: public StressOp<dim, fe_degree>
     {
         public:
-            BDFTwoTentOp(ProblemData<dim> &p_pd)
-            {this->init(p_pd);}
-
             virtual void eval(
                     dealii::FEEvaluationGL<dim, fe_degree, dim> &cur_eval,
                     const unsigned int q);
@@ -22,9 +19,6 @@ namespace viscosaur
     class BDFTwoCorrOp: public StressOp<dim, fe_degree>
     {
         public:
-            BDFTwoCorrOp(ProblemData<dim> &p_pd)
-            {this->init(p_pd);}
-
             virtual void eval(
                     dealii::FEEvaluationGL<dim, fe_degree, dim> &cur_eval,
                     const unsigned int q);
@@ -62,6 +56,12 @@ namespace viscosaur
             BoundaryCond<dim>* bc;
     };
 
+    //This line create BDFTwoTentOpFactory
+    VISCOSAUR_OP_FACTORY(BDFTwoTentOp);
+
+    //This line create BDFTwoCorrOpFactory
+    VISCOSAUR_OP_FACTORY(BDFTwoCorrOp);
+
     template <int dim>
     class BDFTwo: public Scheme<dim>
     {
@@ -75,9 +75,9 @@ namespace viscosaur
             {
                 Scheme<dim>::reinit(p_pd);
                 //init tent_op                
-                this->tent_op = new BDFTwoTentOp<dim, FE_DEGREE>(p_pd);
+                this->tent_op_factory = new BDFTwoTentOpFactory<dim>(p_pd);
                 //init corr_op                
-                this->corr_op = new BDFTwoCorrOp<dim, FE_DEGREE>(p_pd);
+                this->corr_op_factory = new BDFTwoCorrOpFactory<dim>(p_pd);
             }
 
             virtual double poisson_rhs_factor() const
@@ -86,7 +86,6 @@ namespace viscosaur
             }
 
             virtual void handle_poisson_soln(Solution<dim> &soln,
-
                 dealii::PETScWrappers::MPI::Vector& poisson_soln) const
             {
                 soln.poisson_soln.reinit(soln.cur_vel);

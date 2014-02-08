@@ -36,8 +36,8 @@ def refine(pd, soln, strs_solver, vel_solver, scheme):
 
 # Set up the parameters to be used.
 params = defaults.default_params()
-params['initial_adaptive_refines'] = 13
-params['max_grid_level'] = 15
+params['initial_adaptive_refines'] = 8
+params['max_grid_level'] = 10
 params['t_max'] = 100.0 * defaults.secs_in_a_year
 params['time_step'] = params['t_max'] / 16.0
 params['load_mesh'] = False
@@ -66,7 +66,7 @@ exact_vel = vc.SimpleVelocity2D(tla)
 
 vel_bc = vc.SimpleVelocity2D(tla)
 
-sub_timesteps = 200
+sub_timesteps = 10
 #sub_timesteps = 2
 # Setup a 2D poisson solver.
 soln = vc.Solution2D(pd)

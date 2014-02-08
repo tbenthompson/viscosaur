@@ -9,7 +9,7 @@ def default_params():
     # minimum corner(x_min, y_min)
     defaults['min_corner'] = vc.Point2D(50.0, 0.0)
     # maximum corner(x_max, y_max)
-    defaults['max_corner'] = vc.Point2D(5.0e4, 6.0e4)
+    defaults['max_corner'] = vc.Point2D(5.0e4, 4.0e4)
 
     # Polynomial degree of the elements.
     defaults['fe_degree'] = 2;

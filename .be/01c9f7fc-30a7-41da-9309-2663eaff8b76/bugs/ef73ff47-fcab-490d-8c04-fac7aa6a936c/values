@@ -26,21 +26,21 @@
 
 
 
-    "status": "closed", 
+    "status": "open", 
 
 
 
 
 
 
-    "summary": "Extend stress solver beyond 2nd order accuracy -- [HP]", 
+    "summary": "Play with deal.II development of parallel hp refinement.", 
 
 
 
 
 
 
-    "time": "Thu, 23 Jan 2014 16:52:09 +0000"
+    "time": "Sat, 08 Feb 2014 00:19:45 +0000"
 
 
 

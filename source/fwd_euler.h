@@ -9,27 +9,33 @@
 #include <deal.II/matrix_free/matrix_free.h>
 #include <deal.II/matrix_free/fe_evaluation.h>
 
+#include "stress_op.h"
+
 namespace viscosaur
 {
     template <int dim, int fe_degree>
     class FwdEulerTentOp: public StressOp<dim, fe_degree>
     {
         public:
-            FwdEulerTentOp(ProblemData<dim> &p_pd)
-            {this->init(p_pd);}
-            virtual void eval(dealii::FEEvaluationGL<dim, fe_degree, dim> &cur_eval,
-                 const unsigned int q);
+            virtual void eval(
+                    dealii::FEEvaluationGL<dim, fe_degree, dim> &cur_eval,
+                    const unsigned int q);
     };
 
     template <int dim, int fe_degree>
     class FwdEulerCorrOp: public StressOp<dim, fe_degree>
     {
         public:
-            FwdEulerCorrOp(ProblemData<dim> &p_pd)
-            {this->init(p_pd);}
-            virtual void eval(dealii::FEEvaluationGL<dim, fe_degree, dim> &cur_eval,
-                 const unsigned int q);
+            virtual void eval(
+                    dealii::FEEvaluationGL<dim, fe_degree, dim> &cur_eval,
+                    const unsigned int q);
     };
+
+    //This line create FwdEulerTentOpFactory
+    VISCOSAUR_OP_FACTORY(FwdEulerTentOp);
+
+    //This line create FwdEulerCorrOpFactory
+    VISCOSAUR_OP_FACTORY(FwdEulerCorrOp);
 
     template <int dim>
     class FwdEuler: public Scheme<dim>
@@ -44,9 +50,9 @@ namespace viscosaur
             {
                 Scheme<dim>::reinit(p_pd);
                 //init tent_op                
-                this->tent_op = new FwdEulerTentOp<dim, FE_DEGREE>(p_pd);
+                this->tent_op_factory = new FwdEulerTentOpFactory<dim>();
                 //init corr_op                
-                this->corr_op = new FwdEulerCorrOp<dim, FE_DEGREE>(p_pd);
+                this->corr_op_factory = new FwdEulerCorrOpFactory<dim>();
             }
 
             virtual double poisson_rhs_factor() const
@@ -90,6 +96,5 @@ namespace viscosaur
     {
         cur_eval.submit_value(this->cur_strs + this->mu_dt * this->cur_grad_vel, q);
     }
-
 }
 #endif

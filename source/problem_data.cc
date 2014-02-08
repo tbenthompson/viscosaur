@@ -35,17 +35,22 @@ namespace viscosaur
                 (Triangulation<dim>::smoothing_on_refinement |
                  Triangulation<dim>::smoothing_on_coarsening)),
         parameters(params),
-        quadrature(bp::extract<int>(parameters["fe_degree"]) + 1),
-        one_d_quad(bp::extract<int>(parameters["fe_degree"]) + 1),
-        face_quad(bp::extract<int>(parameters["fe_degree"]) + 1),
         pcout(std::cout, (Utilities::MPI::this_mpi_process(mpi_comm) == 0)),
         computing_timer(pcout, TimerOutput::summary, TimerOutput::wall_times),
         vel_dof_handler(triangulation),
-        vel_fe(QGaussLobatto<1>(bp::extract<int>(parameters["fe_degree"]) + 1)),
-        strs_dof_handler(triangulation),
-        strs_fe(FE_Q<dim>(QGaussLobatto<1>(
-                    bp::extract<int>(parameters["fe_degree"]) + 1)), dim)
+        strs_dof_handler(triangulation)
     {
+        const unsigned int max_degree =
+            bp::extract<int>(parameters["max_degree"]);
+        for (unsigned int degree = 1; degree <= max_degree; ++degree)
+        {
+            vel_fe.push_back(FE_Q<dim>(QGaussLobatto<1>(degree + 1)));
+            strs_fe.push_back(FESystem<dim>(FE_Q<dim>(QGaussLobatto<1>(
+                    degree + 1)), dim));
+            quadrature.push_back(QGaussLobatto<dim>(degree + 1));
+            face_quad.push_back(QGaussLobatto<dim-1>(degree + 1));
+            one_d_quad.push_back(QGaussLobatto<1>(degree + 1));
+        }
         const std::string filename = bp::extract<std::string>(
                 parameters["mesh_filename"]);
         bool should_load_mesh = 

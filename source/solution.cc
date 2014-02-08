@@ -113,7 +113,7 @@ namespace viscosaur
 
         /* Create our data saving object.
          */
-        DataOut<dim> data_out;
+        DataOut<dim, hp::DoFHandler<dim> > data_out;
         if (compare_with_exact) 
         {
             data_out.add_data_vector(pd->vel_dof_handler, exact_vel, "exact_vel");
@@ -182,15 +182,19 @@ namespace viscosaur
     {
         TimerOutput::Scope t(pd->computing_timer, "refine");
 
-        parallel::distributed::SolutionTransfer<dim, 
-            parallel::distributed::Vector<double> >*
-            vel_sol_trans = new parallel::distributed::SolutionTransfer<dim, 
-            parallel::distributed::Vector<double> >(pd->vel_dof_handler);    
+        dealii::parallel::distributed::SolutionTransfer
+            <dim, dealii::parallel::distributed::Vector<double>, 
+                dealii::hp::DoFHandler<dim> >*
+            vel_sol_trans = new dealii::parallel::distributed::SolutionTransfer
+            <dim, dealii::parallel::distributed::Vector<double>, 
+                dealii::hp::DoFHandler<dim> >(pd->vel_dof_handler);    
 
-        parallel::distributed::SolutionTransfer<dim, 
-            parallel::distributed::Vector<double> >*
-            strs_sol_trans = new parallel::distributed::SolutionTransfer<dim, 
-            parallel::distributed::Vector<double> >(pd->strs_dof_handler);    
+        dealii::parallel::distributed::SolutionTransfer
+            <dim, dealii::parallel::distributed::Vector<double>, 
+                dealii::hp::DoFHandler<dim> >*
+            strs_sol_trans = new dealii::parallel::distributed::SolutionTransfer
+            <dim, dealii::parallel::distributed::Vector<double>, 
+                dealii::hp::DoFHandler<dim> >(pd->strs_dof_handler);    
 
         std::vector<const parallel::distributed::Vector<double>* > vel_vecs(1);
         vel_vecs[0] = &cur_vel;
@@ -201,8 +205,9 @@ namespace viscosaur
         vel_sol_trans->prepare_for_coarsening_and_refinement(vel_vecs);
         strs_sol_trans->prepare_for_coarsening_and_refinement(strs_vecs);
 
-        std::vector<parallel::distributed::SolutionTransfer<dim, 
-                parallel::distributed::Vector<double> >* > retval(2);
+        std::vector<dealii::parallel::distributed::SolutionTransfer
+            <dim, dealii::parallel::distributed::Vector<double>, 
+                dealii::hp::DoFHandler<dim> >* > retval(2);
         retval[0] = vel_sol_trans;
         retval[1] = strs_sol_trans;
         sol_trans = retval;

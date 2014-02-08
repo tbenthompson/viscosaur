@@ -14,6 +14,8 @@
 #include <deal.II/base/index_set.h>
 #include <deal.II/distributed/tria.h>
 #include <deal.II/matrix_free/matrix_free.h>
+#include <deal.II/hp/dof_handler.h>
+#include <deal.II/hp/fe_values.h>
 #include "linear_algebra.h"
 
 #include <Python.h>
@@ -57,24 +59,24 @@ namespace viscosaur
 
             boost::python::dict           parameters;
             MPI_Comm                      mpi_comm;
-            dealii::QGaussLobatto<dim>    quadrature;
-            dealii::QGaussLobatto<dim-1>  face_quad;
-            dealii::QGaussLobatto<1>      one_d_quad;
+            dealii::hp::QCollection<dim>    quadrature;
+            dealii::hp::QCollection<dim-1>  face_quad;
+            dealii::hp::QCollection<1>      one_d_quad;
             dealii::ConditionalOStream    pcout;
             dealii::TimerOutput           computing_timer;
             dealii::parallel::distributed::Triangulation<dim> triangulation;
 
             InvViscosity<dim>*            inv_visc;
 
-            dealii::DoFHandler<dim>       vel_dof_handler;
-            dealii::FE_Q<dim>             vel_fe;
+            dealii::hp::DoFHandler<dim>       vel_dof_handler;
+            dealii::hp::FECollection<dim>             vel_fe;
             dealii::IndexSet              vel_locally_owned_dofs;
             dealii::IndexSet              vel_locally_relevant_dofs;
             dealii::ConstraintMatrix      vel_hanging_node_constraints;
             dealii::MatrixFree<dim>       vel_matrix_free;
 
-            dealii::DoFHandler<dim>       strs_dof_handler;
-            dealii::FESystem<dim>         strs_fe;
+            dealii::hp::DoFHandler<dim>       strs_dof_handler;
+            dealii::hp::FECollection<dim>         strs_fe;
             dealii::IndexSet              strs_locally_owned_dofs;
             dealii::IndexSet              strs_locally_relevant_dofs;
             dealii::ConstraintMatrix      strs_hanging_node_constraints;

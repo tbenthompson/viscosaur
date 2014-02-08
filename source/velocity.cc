@@ -126,28 +126,25 @@ namespace viscosaur
     assemble_matrix(Solution<dim> &soln, Scheme<dim> &sch, double time_step)
     { 
         TimerOutput::Scope t(pd->computing_timer, "assem_mat");
-        FEValues<dim> vel_fe_values(pd->vel_fe, pd->quadrature, 
+        hp::FEValues<dim> hp_vel_fe_values(pd->vel_fe, pd->quadrature, 
                                 update_values | update_gradients | 
                                 update_JxW_values); 
 
-        FEValues<dim> strs_fe_values(pd->strs_fe, pd->quadrature, 
+        hp::FEValues<dim> hp_strs_fe_values(pd->strs_fe, pd->quadrature, 
                                 update_values); 
 
-        FEFaceValues<dim> fe_face_values(pd->vel_fe, pd->face_quad,
+        hp::FEFaceValues<dim> hp_fe_face_values(pd->vel_fe, pd->face_quad,
                                   update_values | update_quadrature_points |
                                   update_normal_vectors | update_JxW_values);
 
         const FEValuesExtractors::Vector strses(0);
 
-        const unsigned int   dofs_per_cell = pd->vel_fe.dofs_per_cell;
-        const unsigned int   n_q_points    = pd->quadrature.size();
-        const unsigned int n_face_q_points = pd->face_quad.size();
 
-        FullMatrix<double> cell_matrix(dofs_per_cell, dofs_per_cell);
-        Vector<double> cell_rhs(dofs_per_cell);
-        std::vector<types::global_dof_index> local_dof_indices(dofs_per_cell);
+        FullMatrix<double> cell_matrix;
+        Vector<double> cell_rhs;
+        std::vector<types::global_dof_index> local_dof_indices;
 
-        typename DoFHandler<dim>::active_cell_iterator
+        typename hp::DoFHandler<dim>::active_cell_iterator
             cell = pd->vel_dof_handler.begin_active(),
             endc = pd->vel_dof_handler.end();
 
@@ -157,13 +154,13 @@ namespace viscosaur
         const double factor = sch.poisson_rhs_factor() / 
             (shear_modulus * time_step);
 
-        std::vector<Tensor<1, dim> > strs_val(n_q_points);
-        std::vector<Tensor<1, dim> > grad(dofs_per_cell);
-        std::vector<double> val(dofs_per_cell);
+        std::vector<Tensor<1, dim> > strs_val;
+        std::vector<Tensor<1, dim> > grad;
+        std::vector<double> val;
         double JxW;
         for (; cell!=endc; ++cell)
         {
-            typename DoFHandler<dim>::active_cell_iterator
+            typename hp::DoFHandler<dim>::active_cell_iterator
                   cell_strs (&pd->triangulation,
                     cell->level(),
                     cell->index(),
@@ -172,16 +169,27 @@ namespace viscosaur
             {
                 continue;
             }
-            // TimerOutput::Scope t(pd->computing_timer, "assem.cell_one");
-            // TimerOutput::Scope t2(pd->computing_timer, "cell_construction");
+            hp_vel_fe_values.reinit(cell);
+            hp_strs_fe_values.reinit(cell_strs);
+
+            const FEValues<dim> &vel_fe_values = 
+                    hp_vel_fe_values.get_present_fe_values();
+            const FEValues<dim> &strs_fe_values = 
+                    hp_strs_fe_values.get_present_fe_values();
+
+            const unsigned int dofs_per_cell = cell->get_fe().dofs_per_cell;
+            const unsigned int n_q_points = vel_fe_values.n_quadrature_points;
+
+            cell_matrix.reinit(dofs_per_cell, dofs_per_cell);
+            cell_rhs.reinit(dofs_per_cell);
+            val.resize(dofs_per_cell);
+            strs_val.resize(n_q_points);
+            grad.resize(dofs_per_cell);
             cell_matrix = 0;
             cell_rhs = 0;
 
             cell->get_dof_indices(local_dof_indices);
 
-            vel_fe_values.reinit(cell);
-
-            strs_fe_values.reinit(cell_strs);
             strs_fe_values[strses].get_function_values(soln.tent_strs, 
                                                             strs_val);
             for (unsigned int q = 0; q < n_q_points; ++q)
@@ -223,7 +231,11 @@ namespace viscosaur
                 {
                     continue;
                 }
-                fe_face_values.reinit (cell, face);
+                hp_fe_face_values.reinit(cell, face);
+                const FEFaceValues<dim> &fe_face_values = 
+                        hp_fe_face_values.get_present_fe_values();
+                const unsigned int n_face_q_points = 
+                    fe_face_values.n_quadrature_points;
                 for (unsigned int q= 0; q< n_face_q_points; ++q)
                 {
                     const double surf_rhs_value

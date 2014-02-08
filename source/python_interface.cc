@@ -13,7 +13,7 @@
 #include "inv_visc.h"
 #include "scheme.h"
 #include "fwd_euler.h"
-#include "bdf2.h"
+// #include "bdf2.h"
 #include "problem_data.h"
 #include "control.h"
 #include "stress.h"
@@ -160,8 +160,8 @@ BOOST_PYTHON_MODULE(viscosaur)
     class_<vc::FwdEuler<2>, bases<vc::Scheme<2> > >("FwdEuler2D", 
             init<vc::ProblemData<2>&>()[with_custodian_and_ward<1,2>()])
         .def("reinit", &vc::FwdEuler<2>::reinit);
-    class_<vc::BDFTwo<2>, bases<vc::Scheme<2> > >("BDFTwo2D", 
-            init<vc::ProblemData<2>&>()[with_custodian_and_ward<1,2>()])
-        .def("reinit", &vc::BDFTwo<2>::reinit);
+    // class_<vc::BDFTwo<2>, bases<vc::Scheme<2> > >("BDFTwo2D", 
+    //         init<vc::ProblemData<2>&>()[with_custodian_and_ward<1,2>()])
+    //     .def("reinit", &vc::BDFTwo<2>::reinit);
 }
 
