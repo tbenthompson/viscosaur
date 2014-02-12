@@ -26,21 +26,21 @@
 
 
 
-    "status": "closed", 
+    "status": "open", 
 
 
 
 
 
 
-    "summary": "Play with deal.II development of parallel hp refinement.", 
+    "summary": "Consider playing with moving big chunks of the c++ code to python.", 
 
 
 
 
 
 
-    "time": "Sat, 08 Feb 2014 00:19:45 +0000"
+    "time": "Sat, 08 Feb 2014 00:32:40 +0000"
 
 
 
