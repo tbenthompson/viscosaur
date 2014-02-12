@@ -4,7 +4,6 @@
 #include <deal.II/lac/parallel_vector.h>
 #include <deal.II/lac/generic_linear_algebra.h>
 #include <deal.II/distributed/solution_transfer.h>
-#include <deal.II/hp/dof_handler.h>
 
 namespace dealii
 {
@@ -47,9 +46,8 @@ namespace viscosaur
             dealii::parallel::distributed::Vector<double> old_vel;
 
             ProblemData<dim>* pd;
-            std::vector<dealii::parallel::distributed::SolutionTransfer
-                <dim, dealii::parallel::distributed::Vector<double>, 
-                    dealii::hp::DoFHandler<dim> >* > sol_trans;
+            std::vector<dealii::parallel::distributed::SolutionTransfer<dim, 
+                    dealii::parallel::distributed::Vector<double> >* > sol_trans;
     };
 }
 #endif

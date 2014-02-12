@@ -12,7 +12,9 @@ def default_params():
     defaults['max_corner'] = vc.Point2D(5.0e4, 4.0e4)
 
     # Polynomial degree of the elements.
-    defaults['fe_degree'] = 2;
+    defaults['fe_degree'] = 2
+    # TODO: Max degree for hp adaptivity (NOT IMPLEMENTED)
+    defaults['max_degree'] = 10
 
     # Should we load a mesh or create a coarse version and refine it?
     defaults["load_mesh"] = False
