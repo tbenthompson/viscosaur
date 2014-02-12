@@ -87,6 +87,7 @@ namespace viscosaur
             ProblemData<dim>* pd;
             dealii::VectorizedArray<double> mu_dt;
             dealii::VectorizedArray<double> one;
+            dealii::Tensor<1, dim, dealii::VectorizedArray<double> > tensor_one;
     };
 
     template <int dim, int fe_degree>
@@ -104,6 +105,14 @@ namespace viscosaur
             bp::extract<double>(pd.parameters["shear_modulus"]);
         this->mu_dt = dealii::make_vectorized_array(shear_modulus * time_step);
         this->one = dealii::make_vectorized_array(1.0);
+        for(int d = 0; d < dim; d++) 
+        {
+            for(unsigned int array_el = 0; array_el < 
+                    this->tensor_one[0].n_array_elements; array_el++)
+            {
+                this->tensor_one[d][array_el] = 1.0;
+            }
+        }
 
         dealii::FEEvaluationGL<dim, fe_degree, dim> cur_eval(pd.strs_matrix_free);
         dealii::FEEvaluationGL<dim, fe_degree, dim> old_eval(pd.strs_matrix_free);

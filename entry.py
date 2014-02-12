@@ -37,18 +37,23 @@ def refine(pd, soln, strs_solver, vel_solver, scheme):
 # Set up the parameters to be used.
 params = defaults.default_params()
 params['initial_adaptive_refines'] = 8
-params['max_grid_level'] = 10
+params['max_grid_level'] = 12
+params['fe_degree'] = 2
 params['t_max'] = 100.0 * defaults.secs_in_a_year
-params['time_step'] = params['t_max'] / 16.0
+params['time_step'] = params['t_max'] / 30.0
 params['load_mesh'] = False
 params['mesh_filename'] = 'saved_mesh.msh'
 params['refine_frac'] = 0.2
 params['coarse_frac'] = 0.2
-params['test_output'] = True
+params['test_output'] = False
+params['power_law_A'] = 2.2e-20 * 10 ** (-6 * 3.4)
+params['power_law_n'] = 3
+import pdb; pdb.set_trace()
 
 c = controller.Controller(params)
 
 inv_visc = vc.InvViscosityTLA2D(params)
+# inv_visc = vc.InvViscosityPowerLaw2D(params)
 pd = vc.ProblemData2D(params, inv_visc)
 # We must define the slip fnc outside the TLA constructor, otherwise
 # it appears to get deleted (maybe by python?)

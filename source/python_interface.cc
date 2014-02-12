@@ -8,12 +8,13 @@
 #include <boost/python.hpp>
 #include <boost/array.hpp>
 
-#include "analytic.h"
+#include "tla.h"
 #include "velocity.h"
 #include "inv_visc.h"
+#include "nonlin.h"
 #include "scheme.h"
 #include "fwd_euler.h"
-// #include "bdf2.h"
+#include "bdf2.h"
 #include "problem_data.h"
 #include "control.h"
 #include "stress.h"
@@ -54,58 +55,13 @@ BOOST_PYTHON_MODULE(viscosaur)
     class_<vc::Vc>("Vc", init<boost::python::list>())
         .def("get_rank", &vc::Vc::get_rank);
 
-    /* Expose the analytic solution. 
-     * The SlipFnc base class is a slightly different boost expose
-     * because it is a abstract base class and cannot be directly used.
-     */
-    class_<vc::SlipFnc, boost::noncopyable>("SlipFnc", no_init)
-        .def("call", pure_virtual(&vc::SlipFnc::call));
-    // Note the "bases<vc::SlipFnc>" to ensure python understand the 
-    // inheritance tree.
-    class_<vc::ConstantSlipFnc, bases<vc::SlipFnc> >("ConstantSlipFnc", 
-            init<double>())
-        .def("call", &vc::ConstantSlipFnc::call);
-    class_<vc::CosSlipFnc, bases<vc::SlipFnc> >("CosSlipFnc", init<double>())
-        .def("call", &vc::CosSlipFnc::call);
-
-    class_<vc::TwoLayerAnalytic, boost::noncopyable>("TwoLayerAnalytic", 
-            init<double, double, double, double,
-                 vc::SlipFnc&>()[with_custodian_and_ward<1,6>()])
-        .def("simple_velocity", &vc::TwoLayerAnalytic::simple_velocity)
-        .def("simple_Szx", &vc::TwoLayerAnalytic::simple_Szx)
-        .def("simple_Szy", &vc::TwoLayerAnalytic::simple_Szy)
-        .def("integral_velocity", &vc::TwoLayerAnalytic::integral_velocity)
-        .def("integral_Szx", &vc::TwoLayerAnalytic::integral_Szx)
-        .def("integral_Szy", &vc::TwoLayerAnalytic::integral_Szy);
-
-    /* Initial conditions functions.
-     * Note the three "> > >" -- these must be separated by a space
-     */
-    class_<vc::InitStress<2>, bases<dealii::Function<2> > >
-        ("InitStress2D", init<vc::TwoLayerAnalytic&>()
-            [with_custodian_and_ward<1,2>()])
-        .def("value", &vc::InitStress<2>::value);
-    class_<vc::SimpleInitStress<2>, bases<dealii::Function<2> > >
-        ("SimpleInitStress2D", init<vc::TwoLayerAnalytic&>()
-            [with_custodian_and_ward<1,2>()])
-        .def("value", &vc::SimpleInitStress<2>::value);
-    class_<vc::ExactVelocity<2>, bases<dealii::Function<2> > >
-        ("ExactVelocity2D", init<vc::TwoLayerAnalytic&>()
-            [with_custodian_and_ward<1,2>()])
-        .def("value", &vc::ExactVelocity<2>::value)
-        .def("set_t", &vc::ExactVelocity<2>::set_t);
-
     class_<vc::BoundaryCond<2>, boost::noncopyable, 
                                 bases<dealii::Function<2> > >
           ("BoundaryCond2D", no_init)
         .def("set_t", &vc::BoundaryCond<2>::set_t)
         .def("value", pure_virtual(&vc::BoundaryCond<2>::value));
 
-    class_<vc::SimpleVelocity<2>, bases<vc::BoundaryCond<2> > >
-        ("SimpleVelocity2D", init<vc::TwoLayerAnalytic&>()
-            [with_custodian_and_ward<1,2>()])
-        .def("value", &vc::SimpleVelocity<2>::value)
-        .def("set_t", &vc::SimpleVelocity<2>::set_t);
+
 
     /* Solution object
      */
@@ -127,6 +83,10 @@ BOOST_PYTHON_MODULE(viscosaur)
             "InvViscosityTLA2D", init<dict&>())
         .def("value", &vc::InvViscosityTLA<2>::value)
         .def("strs_deriv", &vc::InvViscosityTLA<2>::strs_deriv);
+    class_<vc::powerlaw::InvViscosityPowerLaw<2>, bases<vc::InvViscosity<2> > >(
+            "InvViscosityPowerLaw2D", init<dict&>())
+        .def("value", &vc::powerlaw::InvViscosityPowerLaw<2>::value)
+        .def("strs_deriv", &vc::powerlaw::InvViscosityPowerLaw<2>::strs_deriv);
     /* Expose the Velocity solver. I separate the 2D and 3D because exposing    
      * the templating to python is difficult.
      * boost::noncopyable is required, because the copy constructor of some
@@ -160,8 +120,56 @@ BOOST_PYTHON_MODULE(viscosaur)
     class_<vc::FwdEuler<2>, bases<vc::Scheme<2> > >("FwdEuler2D", 
             init<vc::ProblemData<2>&>()[with_custodian_and_ward<1,2>()])
         .def("reinit", &vc::FwdEuler<2>::reinit);
-    // class_<vc::BDFTwo<2>, bases<vc::Scheme<2> > >("BDFTwo2D", 
-    //         init<vc::ProblemData<2>&>()[with_custodian_and_ward<1,2>()])
-    //     .def("reinit", &vc::BDFTwo<2>::reinit);
+    class_<vc::BDFTwo<2>, bases<vc::Scheme<2> > >("BDFTwo2D", 
+            init<vc::ProblemData<2>&>()[with_custodian_and_ward<1,2>()])
+        .def("reinit", &vc::BDFTwo<2>::reinit);
+
+
+    /* Expose the analytic solution. 
+     * The SlipFnc base class is a slightly different boost expose
+     * because it is a abstract base class and cannot be directly used.
+     */
+    class_<vc::TLA::SlipFnc, boost::noncopyable>("SlipFnc", no_init)
+        .def("call", pure_virtual(&vc::TLA::SlipFnc::call));
+    // Note the "bases<vc::SlipFnc>" to ensure python understand the 
+    // inheritance tree.
+    class_<vc::TLA::ConstantSlipFnc, bases<vc::TLA::SlipFnc> >("ConstantSlipFnc", 
+            init<double>())
+        .def("call", &vc::TLA::ConstantSlipFnc::call);
+    class_<vc::TLA::CosSlipFnc, bases<vc::TLA::SlipFnc> >("CosSlipFnc", init<double>())
+        .def("call", &vc::TLA::CosSlipFnc::call);
+
+    class_<vc::TLA::TwoLayerAnalytic, boost::noncopyable>("TwoLayerAnalytic", 
+            init<double, double, double, double,
+                 vc::TLA::SlipFnc&>()[with_custodian_and_ward<1,6>()])
+        .def("simple_velocity", &vc::TLA::TwoLayerAnalytic::simple_velocity)
+        .def("simple_Szx", &vc::TLA::TwoLayerAnalytic::simple_Szx)
+        .def("simple_Szy", &vc::TLA::TwoLayerAnalytic::simple_Szy)
+        .def("integral_velocity", &vc::TLA::TwoLayerAnalytic::integral_velocity)
+        .def("integral_Szx", &vc::TLA::TwoLayerAnalytic::integral_Szx)
+        .def("integral_Szy", &vc::TLA::TwoLayerAnalytic::integral_Szy);
+
+    /* Initial conditions functions.
+     * Note the three "> > >" -- these must be separated by a space
+     */
+    class_<vc::TLA::InitStress<2>, bases<dealii::Function<2> > >
+        ("InitStress2D", init<vc::TLA::TwoLayerAnalytic&>()
+            [with_custodian_and_ward<1,2>()])
+        .def("value", &vc::TLA::InitStress<2>::value);
+    class_<vc::TLA::SimpleInitStress<2>, bases<dealii::Function<2> > >
+        ("SimpleInitStress2D", init<vc::TLA::TwoLayerAnalytic&>()
+            [with_custodian_and_ward<1,2>()])
+        .def("value", &vc::TLA::SimpleInitStress<2>::value);
+    class_<vc::TLA::ExactVelocity<2>, bases<dealii::Function<2> > >
+        ("ExactVelocity2D", init<vc::TLA::TwoLayerAnalytic&>()
+            [with_custodian_and_ward<1,2>()])
+        .def("value", &vc::TLA::ExactVelocity<2>::value)
+        .def("set_t", &vc::TLA::ExactVelocity<2>::set_t);
+
+   class_<vc::TLA::SimpleVelocity<2>, bases<vc::BoundaryCond<2> > >
+        ("SimpleVelocity2D", init<vc::TLA::TwoLayerAnalytic&>()
+            [with_custodian_and_ward<1,2>()])
+        .def("value", &vc::TLA::SimpleVelocity<2>::value)
+        .def("set_t", &vc::TLA::SimpleVelocity<2>::set_t);
 }
 

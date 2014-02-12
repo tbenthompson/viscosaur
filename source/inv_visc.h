@@ -39,7 +39,8 @@ namespace viscosaur
                 strs_deriv(const dealii::Point<
                         dim, dealii::VectorizedArray<double> > &p,
                       const dealii::Tensor<1, dim, 
-                        dealii::VectorizedArray<double> > &strs) const
+                        dealii::VectorizedArray<double> > &strs,
+                      const unsigned int comp) const
             {
                 dealii::VectorizedArray<double> retval; 
                 for(int i = 0; i < p[0].n_array_elements; i++) 
@@ -51,7 +52,7 @@ namespace viscosaur
                         newp[d] = p[d][i];
                         indv_strs[d] = strs[d][i];
                     }
-                    retval.data[i] = strs_deriv(newp, indv_strs);
+                    retval.data[i] = strs_deriv(newp, indv_strs, comp);
                 }
                 return retval;
             }
@@ -63,7 +64,8 @@ namespace viscosaur
              * stress. Useful for any sort of iterative solver for the ode.
              */
             virtual double strs_deriv(const dealii::Point<dim>  &p,
-                                 const dealii::Tensor<1, dim> strs) const = 0;
+                                 const dealii::Tensor<1, dim> strs,
+                                 const unsigned int comp) const = 0;
     };
 
     template <int dim>
@@ -92,7 +94,8 @@ namespace viscosaur
              * stress.
              */
             virtual double strs_deriv(const dealii::Point<dim>  &p,
-                                 const dealii::Tensor<1, dim> strs) const
+                                 const dealii::Tensor<1, dim> strs,
+                                 const unsigned int comp) const
             {
                 return 0;
             }

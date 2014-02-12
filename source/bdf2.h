@@ -75,9 +75,9 @@ namespace viscosaur
             {
                 Scheme<dim>::reinit(p_pd);
                 //init tent_op                
-                this->tent_op_factory = new BDFTwoTentOpFactory<dim>(p_pd);
+                this->tent_op_factory = new BDFTwoTentOpFactory<dim>();
                 //init corr_op                
-                this->corr_op_factory = new BDFTwoCorrOpFactory<dim>(p_pd);
+                this->corr_op_factory = new BDFTwoCorrOpFactory<dim>();
             }
 
             virtual double poisson_rhs_factor() const
@@ -121,7 +121,8 @@ namespace viscosaur
         dealii::Point<dim, dealii::VectorizedArray<double> > p = 
             cur_eval.quadrature_point(q);
 
-        dealii::Tensor<1, dim, dealii::VectorizedArray<double> > f_val, fp_val;
+        dealii::Tensor<1, dim, dealii::VectorizedArray<double> > f_val, 
+            fp_val, term;
         dealii::VectorizedArray<double> iv, ivd;
         dealii::Tensor<1, dim, dealii::VectorizedArray<double> > guess
             = this->cur_strs;
@@ -150,11 +151,11 @@ namespace viscosaur
                 this->mu_dt * iv * guess -
                 this->mu_dt * this->old_grad_vel;
 
-            // std::cout << "Guess " << iter << ":" << guess << std::endl << 
-            //     "     with residual: " << f_val << std::endl <<
+            // std::cout << "Guess " << iter << ":" << guess[0][0] << std::endl << 
+            //     "     with residual: " << f_val[0][0] << std::endl <<
             //     "     and tolerance: " << rel_tol << std::endl <<
-            //     "     and cur: " << cur_val[array_el] << std::endl <<
-            //     "     and old: " << this->old_val[array_el] << std::endl;
+            //     "     and cur: " << guess[0][0] << std::endl <<
+            //     "     and old: " << this->old_strs[0][0] << std::endl;
             double residual = 0; 
             for(int d = 0; d < dim; d++) 
             {
@@ -171,11 +172,13 @@ namespace viscosaur
             }
             //Replace this with a generic fnc call.
             //Calculate the current derivative of the function.
-            //TODO: FIGURE OUT IVD
-            ivd = this->pd->inv_visc->strs_deriv(p, guess);
-
+            for(int d = 0; d < dim; d++)
+            {
+                ivd = this->pd->inv_visc->strs_deriv(p, guess, d);
+                term[d] = guess[d] * ivd;
+            }
             fp_val = one_pt_five * this->tensor_one + 
-                this->mu_dt * (iv * this->tensor_one + guess * ivd);
+                this->mu_dt * (iv * this->tensor_one + term);
             for(int d = 0; d < dim; d++) 
             {
                 for(unsigned int array_el = 0; array_el < 
