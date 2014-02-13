@@ -67,7 +67,7 @@ namespace viscosaur
             void solve (Solution<dim> &soln, Scheme<dim> &sch);
             
             ProblemData<dim>* pd;
-            dealii::ConstraintMatrix constraints;
+            dealii::ConstraintMatrix* constraints;
             LA::MPI::SparseMatrix system_matrix;
             LA::MPI::Vector       system_rhs;
     };

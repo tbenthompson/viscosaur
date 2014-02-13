@@ -54,6 +54,7 @@ namespace viscosaur
     template <int dim>
     Velocity<dim>::~Velocity()
     {
+        delete constraints;
         // std::cout << "Destruction of Velocity." << std::endl;
     }
 
@@ -88,7 +89,7 @@ namespace viscosaur
 
         update_bc(bc, sch);
         CompressedSimpleSparsityPattern* csp = 
-            pd->create_vel_sparsity_pattern(constraints);
+            pd->create_vel_sparsity_pattern(*constraints);
         // Initialize the matrix, rhs and solution vectors.
         // Ax = b, 
         // where system_rhs is b, system_matrix is A, 
@@ -106,17 +107,17 @@ namespace viscosaur
     template <int dim>
     void Velocity<dim>::update_bc(BoundaryCond<dim> &bc, Scheme<dim> &sch)
     {
-        constraints = *pd->create_vel_constraints();
+        constraints = pd->create_vel_constraints();
         Function<dim>* encapsulated_bc = sch.handle_bc(bc);
         VectorTools::interpolate_boundary_values(pd->vel_dof_handler,
-                0, *encapsulated_bc, constraints);
+                0, *encapsulated_bc, *constraints);
         VectorTools::interpolate_boundary_values(pd->vel_dof_handler,
-                1, *encapsulated_bc, constraints);
+                1, *encapsulated_bc, *constraints);
         // VectorTools::interpolate_boundary_values(pd->vel_dof_handler,
         //         2, *encapsulated_bc, constraints);
         VectorTools::interpolate_boundary_values(pd->vel_dof_handler,
-                3, *encapsulated_bc, constraints);
-        constraints.close();
+                3, *encapsulated_bc, *constraints);
+        constraints->close();
     }
 
 
@@ -151,13 +152,13 @@ namespace viscosaur
             cell = pd->vel_dof_handler.begin_active(),
             endc = pd->vel_dof_handler.end();
 
-        double value;
         const double shear_modulus = 
             bp::extract<double>(pd->parameters["shear_modulus"]);
         const double factor = sch.poisson_rhs_factor() / 
             (shear_modulus * time_step);
 
         std::vector<Tensor<1, dim> > strs_val(n_q_points);
+        std::vector<Tensor<1, dim> > rhs_grad_terms(n_q_points);
         std::vector<Tensor<1, dim> > grad(dofs_per_cell);
         std::vector<double> val(dofs_per_cell);
         double JxW;
@@ -184,6 +185,7 @@ namespace viscosaur
             strs_fe_values.reinit(cell_strs);
             strs_fe_values[strses].get_function_values(soln.tent_strs, 
                                                             strs_val);
+            sch.get_rhs_grad_terms(vel_fe_values, soln, rhs_grad_terms);
             for (unsigned int q = 0; q < n_q_points; ++q)
             {
                 JxW = vel_fe_values.JxW(q);
@@ -203,8 +205,10 @@ namespace viscosaur
                         // for the mapping between the element and the unit 
                         // element and the size of the element
                         cell_matrix(i,j) += grad[i] * grad[j] * JxW;
+                        // cell_matrix(i,j) += val[i] * val[j] * JxW;
                     } 
-                    cell_rhs(i) -= factor * strs_val[q] * grad[i] * JxW; 
+                    cell_rhs(i) -= factor * strs_val[q] * grad[i] * JxW;
+                    // cell_rhs(i) += rhs_grad_terms[q] * grad[i] * JxW;
                 } 
 
             }
@@ -238,7 +242,7 @@ namespace viscosaur
                 }
             }
 
-            constraints.distribute_local_to_global(cell_matrix, cell_rhs,
+            constraints->distribute_local_to_global(cell_matrix, cell_rhs,
                                                    local_dof_indices,
                                                    system_matrix, system_rhs);
         }
@@ -288,7 +292,7 @@ namespace viscosaur
         pd->pcout << "   Solved in " << solver_control.last_step()
               << " iterations." << std::endl;
 
-        constraints.distribute(completely_distributed_solution);
+        constraints->distribute(completely_distributed_solution);
 
         sch.handle_poisson_soln(soln, completely_distributed_solution);
     }

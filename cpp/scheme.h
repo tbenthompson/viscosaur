@@ -1,5 +1,6 @@
 #ifndef __viscosaur_scheme_h
 #define __viscosaur_scheme_h
+#include <deal.II/fe/fe_values.h>
 namespace dealii
 {
     template <int dim> class Function;
@@ -36,6 +37,17 @@ namespace viscosaur
             OpFactory<dim>* get_correction_step_factory()
             {
                 return this->corr_op_factory;
+            }
+
+            virtual void get_rhs_grad_terms(
+                    dealii::FEValues<dim> &vel_fe_values,
+                    Solution<dim> &soln,
+                    std::vector<dealii::Tensor<1, dim> >& retval)
+            {
+                for(int i = 0; i < retval.size(); i++)
+                {
+                    retval[i] = 0;
+                }
             }
 
             virtual double poisson_rhs_factor() const = 0;

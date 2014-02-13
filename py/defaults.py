@@ -41,6 +41,9 @@ def default_params():
     defaults['refine_frac'] = 0.2
     defaults['coarse_frac'] = 0.2
 
+    # The interval (in time steps) to wait before refining again:
+    defaults['refine_interval'] = 3
+
     # time stepping
     defaults['t_max'] = 100.0 * secs_in_a_year
     defaults['time_step'] = defaults['t_max'] / 100.0
