@@ -25,6 +25,25 @@ namespace viscosaur
 
             double t_;
     };
+
+    template <int dim>
+    class ConstantBC: public BoundaryCond<dim>
+    {
+        public:
+            ConstantBC(const double val):
+                BoundaryCond<dim>()
+            {
+                retval = val; 
+            }
+
+            virtual double value(const dealii::Point<dim>   &p,
+                                  const unsigned int  component) const
+            {
+                return retval;
+            }
+
+            double retval;
+    };
 }
 
 #endif

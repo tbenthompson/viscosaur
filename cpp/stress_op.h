@@ -17,51 +17,6 @@ namespace viscosaur
 {
     namespace bp = boost::python;
 
-
-    template <int dim, int fe_degree>
-    class MassMatrixOp
-    {
-        public:
-        void hp_local_apply(ProblemData<dim> &pd, 
-             dealii::parallel::distributed::Vector<double> &dst,
-             const std::vector<
-                    dealii::parallel::distributed::Vector<double> > &src,
-             const std::pair<unsigned int, unsigned int> &cell_range,
-             const double time_step)
-        {
-            dealii::Tensor<1, dim, dealii::VectorizedArray<double> > tensor_one;
-            for(int d = 0; d < dim; d++) 
-            {
-                for(unsigned int array_el = 0; array_el < 
-                        tensor_one[0].n_array_elements; array_el++)
-                {
-                    tensor_one[d][array_el] = 1.0;
-                }
-            }
-
-            dealii::FEEvaluationGL<dim, fe_degree, dim> 
-                fe_eval(pd.strs_matrix_free);
-
-            const unsigned int n_q_points = fe_eval.n_q_points;
-
-            for (unsigned int cell = cell_range.first; 
-                    cell < cell_range.second;
-                    ++cell)
-            {
-                fe_eval.reinit (cell);
-                for (unsigned int q=0; q<n_q_points; ++q)
-                {
-                    fe_eval.submit_value(tensor_one, q);
-                }
-                fe_eval.integrate(true, false);
-                fe_eval.distribute_local_to_global(dst);
-            }
-        }
-    };
-
-    //This line creates MassMatrixOpFactory
-    VISCOSAUR_OP_FACTORY(MassMatrixOp);
-
     template <int dim, int fe_degree>
     class StressOp
     {
@@ -71,7 +26,7 @@ namespace viscosaur
                  const std::vector<
                         dealii::parallel::distributed::Vector<double> > &src,
                  const std::pair<unsigned int, unsigned int> &cell_range,
-                 const double time_step);
+                 void* data);
 
             virtual void eval(dealii::FEEvaluationGL<dim, fe_degree, dim> 
                     &cur_eval, const unsigned int q) = 0;
@@ -98,8 +53,9 @@ namespace viscosaur
                    const std::vector<
                        dealii::parallel::distributed::Vector<double> > &src,
                    const std::pair<unsigned int,unsigned int> &cell_range,
-                   const double time_step)
+                   void* data)
     {
+        double time_step = *(double *)data;
         this->pd = &pd;
         const double shear_modulus = 
             bp::extract<double>(pd.parameters["shear_modulus"]);

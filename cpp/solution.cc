@@ -44,6 +44,9 @@ namespace viscosaur
                     Function<dim> &init_vel)
     {
         TimerOutput::Scope t(pd->computing_timer, "init_cond");
+        // MatrixFreeCalculation mfc(pd, pd->strs_matrix_free, 
+        //         *pd->create_strs_constraints());
+        // mfc.apply(cur_strs);
         VectorTools::interpolate(pd->strs_dof_handler, init_strs, cur_strs);
         VectorTools::interpolate(pd->vel_dof_handler, init_vel, cur_vel);
     }

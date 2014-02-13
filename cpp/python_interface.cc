@@ -61,8 +61,6 @@ BOOST_PYTHON_MODULE(viscosaur)
         .def("set_t", &vc::BoundaryCond<2>::set_t)
         .def("value", pure_virtual(&vc::BoundaryCond<2>::value));
 
-
-
     /* Solution object
      */
     class_<vc::Solution<2>, boost::noncopyable>("Solution2D", 
@@ -83,10 +81,6 @@ BOOST_PYTHON_MODULE(viscosaur)
             "InvViscosityTLA2D", init<dict&>())
         .def("value", &vc::InvViscosityTLA<2>::value)
         .def("strs_deriv", &vc::InvViscosityTLA<2>::strs_deriv);
-    class_<vc::powerlaw::InvViscosityPowerLaw<2>, bases<vc::InvViscosity<2> > >(
-            "InvViscosityPowerLaw2D", init<dict&>())
-        .def("value", &vc::powerlaw::InvViscosityPowerLaw<2>::value)
-        .def("strs_deriv", &vc::powerlaw::InvViscosityPowerLaw<2>::strs_deriv);
     /* Expose the Velocity solver. I separate the 2D and 3D because exposing    
      * the templating to python is difficult.
      * boost::noncopyable is required, because the copy constructor of some
@@ -124,6 +118,13 @@ BOOST_PYTHON_MODULE(viscosaur)
             init<vc::ProblemData<2>&>()[with_custodian_and_ward<1,2>()])
         .def("reinit", &vc::BDFTwo<2>::reinit);
 
+
+    class_<vc::ConstantBC<2>, bases<vc::BoundaryCond<2> > >
+        ("ConstantBC2D", init<double>());
+    class_<vc::powerlaw::InvViscosityPowerLaw<2>, bases<vc::InvViscosity<2> > >(
+            "InvViscosityPowerLaw2D", init<dict&>())
+        .def("value", &vc::powerlaw::InvViscosityPowerLaw<2>::value)
+        .def("strs_deriv", &vc::powerlaw::InvViscosityPowerLaw<2>::strs_deriv);
 
     /* Expose the analytic solution. 
      * The SlipFnc base class is a slightly different boost expose
