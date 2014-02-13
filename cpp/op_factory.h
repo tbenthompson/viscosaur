@@ -64,7 +64,7 @@ namespace viscosaur
 namespace viscosaur
 {
     template <int dim, int fe_degree>
-    class MassMatrixOp
+    class VectorMassMatrixOp
     {
         public:
         void hp_local_apply(ProblemData<dim> &pd, 
@@ -104,11 +104,8 @@ namespace viscosaur
         }
     };
 
-    //This line creates MassMatrixOpFactory
-    VISCOSAUR_OP_FACTORY(MassMatrixOp);
-    
     template <int dim, int fe_degree>
-    class ProjectionOp
+    class ScalarMassMatrixOp
     {
         public:
         void hp_local_apply(ProblemData<dim> &pd, 
@@ -118,10 +115,15 @@ namespace viscosaur
              const std::pair<unsigned int, unsigned int> &cell_range,
              void* data)
         {
-            dealii::Function<dim>* fnc = (dealii::Function<dim>*)data;
+            dealii::VectorizedArray<double> one;
+            for(unsigned int array_el = 0; array_el < 
+                    one.n_array_elements; array_el++)
+            {
+                one[array_el] = 1.0;
+            }
 
-            dealii::FEEvaluationGL<dim, fe_degree, dim> 
-                fe_eval(mf);
+            dealii::FEEvaluationGL<dim, fe_degree> 
+                fe_eval(pd.vel_matrix_free);
 
             const unsigned int n_q_points = fe_eval.n_q_points;
 
@@ -132,7 +134,101 @@ namespace viscosaur
                 fe_eval.reinit (cell);
                 for (unsigned int q=0; q<n_q_points; ++q)
                 {
-                    fe_eval.submit_value(fnc(q), q);
+                    fe_eval.submit_value(one, q);
+                }
+                fe_eval.integrate(true, false);
+                fe_eval.distribute_local_to_global(dst);
+            }
+        }
+    };
+    //This line creates VectorMassMatrixOpFactory
+    VISCOSAUR_OP_FACTORY(VectorMassMatrixOp);
+    //This line creates ScalarMassMatrixOpFactory
+    VISCOSAUR_OP_FACTORY(ScalarMassMatrixOp);
+
+    
+    template <int dim, int fe_degree>
+    class StrsProjectionOp
+    {
+        public:
+        void hp_local_apply(ProblemData<dim> &pd, 
+             dealii::parallel::distributed::Vector<double> &dst,
+             const std::vector<
+                    dealii::parallel::distributed::Vector<double> > &src,
+             const std::pair<unsigned int, unsigned int> &cell_range,
+             void* data)
+        {
+            dealii::Function<dim>* fnc = (dealii::Function<dim>*)data;
+            dealii::Point<dim, dealii::VectorizedArray<double> > p_list;
+            dealii::Tensor<1, dim, dealii::VectorizedArray<double> > submit_val;
+            dealii::FEEvaluationGL<dim, fe_degree, dim> fe_eval(pd.strs_matrix_free);
+            const unsigned int n_q_points = fe_eval.n_q_points;
+            for (unsigned int cell = cell_range.first; 
+                    cell < cell_range.second;
+                    ++cell)
+            {
+                fe_eval.reinit (cell);
+                for (unsigned int q=0; q<n_q_points; ++q)
+                {
+                    p_list = fe_eval.quadrature_point(q);
+                    for (unsigned int array_el = 0; 
+                         array_el < submit_val[0].n_array_elements;
+                         array_el++)
+                    {
+                        dealii::Point<dim> p;
+                        for (unsigned int d = 0; d < dim; d++)
+                        {
+                            p[d] = p_list[d][array_el];
+                        }
+                        for (unsigned int d = 0; d < dim; d++)
+                        {
+                            submit_val[d][array_el] = fnc->value(p, d);
+                        }
+                    }
+                    fe_eval.submit_value(submit_val, q);
+                }
+                fe_eval.integrate(true, false);
+                fe_eval.distribute_local_to_global(dst);
+            }
+        }
+    };
+
+    template <int dim, int fe_degree>
+    class VelProjectionOp
+    {
+        public:
+        void hp_local_apply(ProblemData<dim> &pd, 
+             dealii::parallel::distributed::Vector<double> &dst,
+             const std::vector<
+                    dealii::parallel::distributed::Vector<double> > &src,
+             const std::pair<unsigned int, unsigned int> &cell_range,
+             void* data)
+        {
+            dealii::Function<dim>* fnc = (dealii::Function<dim>*)data;
+            dealii::Point<dim, dealii::VectorizedArray<double> > p_list;
+            dealii::VectorizedArray<double> submit_val;
+            dealii::FEEvaluationGL<dim, fe_degree> fe_eval(pd.vel_matrix_free);
+            const unsigned int n_q_points = fe_eval.n_q_points;
+            for (unsigned int cell = cell_range.first; 
+                    cell < cell_range.second;
+                    ++cell)
+            {
+                fe_eval.reinit (cell);
+                for (unsigned int q=0; q<n_q_points; ++q)
+                {
+                    p_list = fe_eval.quadrature_point(q);
+                    for (unsigned int array_el = 0; 
+                         array_el < submit_val.n_array_elements;
+                         array_el++)
+                    {
+                        dealii::Point<dim> p;
+                        for (unsigned int d = 0; d < dim; d++)
+                        {
+                            p[d] = p_list[d][array_el];
+                        }
+                        submit_val[array_el] = fnc->value(p);
+                    }
+                    fe_eval.submit_value(submit_val, q);
                 }
                 fe_eval.integrate(true, false);
                 fe_eval.distribute_local_to_global(dst);
@@ -141,6 +237,7 @@ namespace viscosaur
     };
 
     //This line creates ProjectionOpFactory
-    VISCOSAUR_OP_FACTORY(ProjectionOp);
+    VISCOSAUR_OP_FACTORY(StrsProjectionOp);
+    VISCOSAUR_OP_FACTORY(VelProjectionOp);
 }
 #endif

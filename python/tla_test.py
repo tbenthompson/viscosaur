@@ -17,8 +17,8 @@ import defaults
 
 # Set up the parameters to be used.
 params = defaults.default_params()
-params['initial_adaptive_refines'] = 8
-params['max_grid_level'] = 12
+params['initial_adaptive_refines'] = 12
+params['max_grid_level'] = 15
 params['t_max'] = 100.0 * defaults.secs_in_a_year
 params['time_step'] = params['t_max'] / 30.0
 params['load_mesh'] = False
@@ -26,6 +26,7 @@ params['mesh_filename'] = 'saved_mesh.msh'
 params['refine_frac'] = 0.2
 params['coarse_frac'] = 0.2
 params['test_output'] = True
+params['fe_degree'] = 2
 
 # Initial stress setup -- fed into an elastic half-space solution
 # to determine initial conditions. In the future, I could numerically

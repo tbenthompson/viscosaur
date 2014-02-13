@@ -1,5 +1,7 @@
 #include "solution.h"
 #include "problem_data.h"
+#include "op_factory.h"
+#include "matrix_free_calculation.h"
 
 #include <deal.II/base/function.h>
 #include <deal.II/numerics/vector_tools.h>
@@ -44,11 +46,18 @@ namespace viscosaur
                     Function<dim> &init_vel)
     {
         TimerOutput::Scope t(pd->computing_timer, "init_cond");
-        // MatrixFreeCalculation mfc(pd, pd->strs_matrix_free, 
-        //         *pd->create_strs_constraints());
-        // mfc.apply(cur_strs);
-        VectorTools::interpolate(pd->strs_dof_handler, init_strs, cur_strs);
-        VectorTools::interpolate(pd->vel_dof_handler, init_vel, cur_vel);
+
+        MatrixFreeCalculation<dim> mfc(*pd, pd->strs_matrix_free, 
+                *pd->create_strs_constraints());
+        StrsProjectionOpFactory<dim> strs_op_factory;
+        mfc.op_factory = &strs_op_factory;
+        mfc.apply(cur_strs, &init_strs);
+
+        MatrixFreeCalculation<dim> mfc2(*pd, pd->vel_matrix_free, 
+                *pd->create_vel_constraints(), true);
+        VelProjectionOpFactory<dim> vel_op_factory;
+        mfc2.op_factory = &vel_op_factory;
+        mfc2.apply(cur_vel, &init_vel);
     }
 
     template <int dim>
@@ -58,8 +67,18 @@ namespace viscosaur
                    Function<dim> &init_vel)
     {
         TimerOutput::Scope t(pd->computing_timer, "init_cond");
-        VectorTools::interpolate(pd->strs_dof_handler, init_strs, old_strs);
-        VectorTools::interpolate(pd->vel_dof_handler, init_vel, old_vel);
+
+        MatrixFreeCalculation<dim> mfc(*pd, pd->strs_matrix_free, 
+                *pd->create_strs_constraints());
+        StrsProjectionOpFactory<dim> strs_op_factory;
+        mfc.op_factory = &strs_op_factory;
+        mfc.apply(old_strs, &init_strs);
+
+        MatrixFreeCalculation<dim> mfc2(*pd, pd->vel_matrix_free, 
+                *pd->create_vel_constraints(), true);
+        VelProjectionOpFactory<dim> vel_op_factory;
+        mfc2.op_factory = &vel_op_factory;
+        mfc2.apply(old_vel, &init_vel);
     }
 
     template <int dim>
@@ -76,7 +95,7 @@ namespace viscosaur
     template <int dim>
     void Solution<dim>::output(std::string data_dir,
                                std::string filename,
-                               Function<dim> &exact) const
+                               Function<dim> &exact)
     {
         TimerOutput::Scope t(pd->computing_timer, "output");
 

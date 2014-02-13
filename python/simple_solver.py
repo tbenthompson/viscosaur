@@ -35,7 +35,6 @@ class SimpleSolver(object):
             time_step = self.params['time_step'] / sub_timesteps
             self.vel_bc.set_t(time_step)
             exact_vel.set_t(time_step)
-            import pdb;pdb.set_trace()
             for i in range(self.params['initial_adaptive_refines']):
                 self.soln.apply_init_cond(init_strs, init_vel)
                 self.step(time_step)

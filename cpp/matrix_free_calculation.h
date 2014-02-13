@@ -18,7 +18,8 @@ namespace viscosaur
         public:
             MatrixFreeCalculation(ProblemData<dim> &p_pd,
                                   dealii::MatrixFree<dim> &p_mf,
-                                  dealii::ConstraintMatrix &p_cm);
+                                  dealii::ConstraintMatrix &p_cm,
+                                  bool scalar = false);
             ~MatrixFreeCalculation();
 
             /* Pre-build some of the structures necessary for efficient 
@@ -26,12 +27,13 @@ namespace viscosaur
              */
             virtual void reinit(ProblemData<dim> &p_pd,
                         dealii::MatrixFree<dim> &p_mf,
-                        dealii::ConstraintMatrix &p_cm);
+                        dealii::ConstraintMatrix &p_cm,
+                        bool scalar = false);
 
             /* Compute and invert the diagonal mass matrix produced by the 
              * GLL quadrature and interpolation.
              */
-            void compute_mass_matrix();
+            void compute_mass_matrix(bool scalar);
 
             /* The main function of the class computes one time step. Call the
              * local_apply function for every cell. Then, uses the inverse mass

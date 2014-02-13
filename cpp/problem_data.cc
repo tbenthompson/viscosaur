@@ -101,10 +101,13 @@ namespace viscosaur
         // processes
         // Set the dofs that this process will actually solve.
         vel_locally_owned_dofs = vel_dof_handler.locally_owned_dofs();
+        strs_locally_owned_dofs = strs_dof_handler.locally_owned_dofs();
 
         // Set the dofs that this process will need to perform solving
         DoFTools::extract_locally_relevant_dofs(vel_dof_handler,
                 vel_locally_relevant_dofs);
+        DoFTools::extract_locally_relevant_dofs(strs_dof_handler,
+                strs_locally_relevant_dofs);
 
         // Create a constraints matrix that just contains the hanging node 
         // constraints. We will copy this matrix later when we need to add other
@@ -127,7 +130,8 @@ namespace viscosaur
         additional_data_strs.mpi_communicator = mpi_comm;
 
         typename MatrixFree<dim>::AdditionalData additional_data_vel;
-        additional_data_vel.mapping_update_flags = update_gradients;
+        additional_data_vel.mapping_update_flags = update_gradients |
+                                                    update_quadrature_points;
         additional_data_vel.mpi_communicator = mpi_comm;
 
         strs_matrix_free.reinit(strs_dof_handler, strs_hanging_node_constraints,

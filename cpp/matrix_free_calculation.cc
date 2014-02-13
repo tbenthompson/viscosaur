@@ -12,9 +12,10 @@ namespace viscosaur
     MatrixFreeCalculation<dim>::MatrixFreeCalculation(
             ProblemData<dim> &p_pd,
             dealii::MatrixFree<dim> &p_mf,
-            dealii::ConstraintMatrix &p_cm)
+            dealii::ConstraintMatrix &p_cm,
+           bool scalar)
     {
-        reinit(p_pd, p_mf, p_cm);
+        reinit(p_pd, p_mf, p_cm, scalar);
     }
 
     template <int dim>
@@ -27,25 +28,33 @@ namespace viscosaur
     MatrixFreeCalculation<dim>::
     reinit(ProblemData<dim> &p_pd,
            dealii::MatrixFree<dim> &p_mf,
-           dealii::ConstraintMatrix &p_cm)
+           dealii::ConstraintMatrix &p_cm,
+           bool scalar)
     {
         pd = &p_pd;
         mf = &p_mf;
         constraints = &p_cm;
         constraints->close();
-        compute_mass_matrix();
+        compute_mass_matrix(scalar);
     }
 
     template <int dim>
     void
     MatrixFreeCalculation<dim>::
-    compute_mass_matrix()
+    compute_mass_matrix(bool scalar)
     {
         // Integrate and invert the diagonal mass matrix resulting from the
         // Gauss Lobatto Lagrange elements and quadrature match up.
         mf->initialize_dof_vector(inv_mass_matrix);
 
-        this->op_factory = new MassMatrixOpFactory<dim>();
+        if(scalar)
+        {
+            this->op_factory = new ScalarMassMatrixOpFactory<dim>();
+        }
+        else
+        {
+            this->op_factory = new VectorMassMatrixOpFactory<dim>();
+        }
         
         // Use the mass matrix operator 
         std::vector<dealii::parallel::distributed::Vector <double> >

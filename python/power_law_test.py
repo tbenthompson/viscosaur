@@ -11,11 +11,12 @@ params['t_max'] = 100.0 * defaults.secs_in_a_year
 params['time_step'] = params['t_max'] / 30.0
 params['load_mesh'] = False
 params['mesh_filename'] = 'saved_mesh.msh'
-params['refine_frac'] = 0.05
-params['coarse_frac'] = 0.3
+params['refine_frac'] = 0.2
+params['coarse_frac'] = 0.2
 params['test_output'] = False
-params['min_corner'] = vc.Point2D(50.0, 0.0)
+params['min_corner'] = vc.Point2D(10.0, 0.0)
 params['max_corner'] = vc.Point2D(5.0e4, 4.0e4)
+params['fe_degree'] = 1
 
 # Initial stress setup -- fed into an elastic half-space solution
 # to determine initial conditions. In the future, I could numerically
@@ -28,7 +29,7 @@ params['elastic_depth'] = 1.0e4
 # Parameters for a power law viscosity function
 params['power_law_A'] = 2.2e-4 * 10 ** (-6 * 3.4) # (Pa^-n)/sec
 params['power_law_n'] = 3.4
-params['power_law_Q'] = 2.6e5  # J/mol
+params['power_law_Q'] = 2.6e5 # J/mol
 params['shear_modulus'] = 3.0e10 # Pa
 # Far field plate rate boundary condition.
 params['plate_rate'] = 0#(40.0 / 1.0e3) / secs_in_a_year  # 40 mm/yr
@@ -42,7 +43,7 @@ tla = vc.TwoLayerAnalytic(params['fault_slip'],
                           params['fault_depth'],
                           params['shear_modulus'],
                           1.0, sf)
-init_strs = vc.SimpleInitStress2D(tla)
+init_strs = vc.InitStress2D(tla)
 init_vel = vc.ConstantBC2D(0.0)
 init_vel.set_t(0.0)
 exact_vel = vc.ConstantBC2D(0.0)

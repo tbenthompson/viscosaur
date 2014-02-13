@@ -1,0 +1,50 @@
+{
+
+
+
+
+
+
+    "creator": "Ben Thompson <t.ben.thompson@gmail.com>", 
+
+
+
+
+
+
+    "reporter": "Ben Thompson <t.ben.thompson@gmail.com>", 
+
+
+
+
+
+
+    "severity": "minor", 
+
+
+
+
+
+
+    "status": "open", 
+
+
+
+
+
+
+    "summary": "Replace void* with boost::any", 
+
+
+
+
+
+
+    "time": "Thu, 13 Feb 2014 01:50:33 +0000"
+
+
+
+
+
+
+}

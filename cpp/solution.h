@@ -28,7 +28,7 @@ namespace viscosaur
 
             void output(std::string data_dir,
                         std::string filename,
-                        dealii::Function<dim> &vel) const;
+                        dealii::Function<dim> &vel);
 
             void start_timestep();
 
