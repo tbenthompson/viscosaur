@@ -61,7 +61,7 @@ class SimpleSolver(object):
                 filename = "solution-" + str(i) + "."
                 if self.params['output']:
                     self.soln.output(self.params['data_dir'], filename, exact_vel)
-                self.refine()
+                # self.refine()
             if i == 1:
                 # At the end of the first time step, we switch to using a BDF2 scheme
                 sub_timesteps = 1

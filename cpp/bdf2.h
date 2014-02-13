@@ -2,6 +2,7 @@
 #define __viscosaur_bdf2_h
 #include "boundary_cond.h"
 #include "stress_op.h"
+#include "scheme.h"
 
 namespace viscosaur
 {
@@ -80,6 +81,15 @@ namespace viscosaur
                 this->corr_op_factory = new BDFTwoCorrOpFactory<dim>();
             }
 
+            virtual void get_rhs_grad_terms(
+                    dealii::FEValues<dim> &vel_fe_values,
+                    Solution<dim> &soln,
+                    std::vector<dealii::Tensor<1, dim> >& retval)
+            {
+                vel_fe_values.get_function_gradients(soln.old_vel, retval);
+            }
+            
+
             virtual double poisson_rhs_factor() const
             {
                 return 1.5;
@@ -88,18 +98,19 @@ namespace viscosaur
             virtual void handle_poisson_soln(Solution<dim> &soln,
                 dealii::PETScWrappers::MPI::Vector& poisson_soln) const
             {
+                //Does the same thing as FwdEuler, but didn't in the past. 
+                //Might use this again in the future so keep it around.
                 soln.poisson_soln.reinit(soln.cur_vel);
                 soln.poisson_soln = poisson_soln;
-                soln.cur_vel = soln.old_vel; 
-                soln.cur_vel += soln.poisson_soln; 
+                soln.cur_vel = soln.poisson_soln;
             }
 
             virtual BoundaryCond<dim>* handle_bc(BoundaryCond<dim> &bc)
                 const
             {
-                const double time_step = 
-                    bp::extract<double>(this->pd->parameters["time_step"]);
-                return new BDFTwoBC<dim>(bc, time_step);
+                //Does the same thing as FwdEuler, but didn't in the past. 
+                //Might use this again in the future so keep it around.
+                return &bc;
             }
     };
 

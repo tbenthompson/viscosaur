@@ -158,6 +158,7 @@ namespace viscosaur
             (shear_modulus * time_step);
 
         std::vector<Tensor<1, dim> > strs_val(n_q_points);
+        std::vector<Tensor<1, dim> > rhs_grad_terms(n_q_points);
         std::vector<Tensor<1, dim> > grad(dofs_per_cell);
         std::vector<double> val(dofs_per_cell);
         double JxW;
@@ -184,6 +185,7 @@ namespace viscosaur
             strs_fe_values.reinit(cell_strs);
             strs_fe_values[strses].get_function_values(soln.tent_strs, 
                                                             strs_val);
+            sch.get_rhs_grad_terms(vel_fe_values, soln, rhs_grad_terms);
             for (unsigned int q = 0; q < n_q_points; ++q)
             {
                 JxW = vel_fe_values.JxW(q);
@@ -205,8 +207,8 @@ namespace viscosaur
                         cell_matrix(i,j) += grad[i] * grad[j] * JxW;
                     } 
                     cell_rhs(i) -= factor * strs_val[q] * grad[i] * JxW; 
+                    cell_rhs(i) += rhs_grad_terms[q] * grad[i] * JxW;
                 } 
-
             }
             for (unsigned int i=0; i<dofs_per_cell; ++i)
                 for (unsigned int j=i+1; j<dofs_per_cell; ++j)
