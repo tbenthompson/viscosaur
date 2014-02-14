@@ -45,10 +45,6 @@ namespace viscosaur
                 create_vel_sparsity_pattern(
                     dealii::ConstraintMatrix &constraints);
 
-            dealii::ConstraintMatrix* create_vel_constraints();
-
-            dealii::ConstraintMatrix* create_strs_constraints();
-
             void generate_mesh();
             void initial_refinement();
             void save_mesh(const std::string &filename);

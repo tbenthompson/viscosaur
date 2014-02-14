@@ -116,10 +116,13 @@ namespace viscosaur
         vel_hanging_node_constraints.reinit(vel_locally_relevant_dofs);
         DoFTools::make_hanging_node_constraints(vel_dof_handler, 
                                                 vel_hanging_node_constraints);
+        vel_hanging_node_constraints.close();
+
         strs_hanging_node_constraints.clear();
         strs_hanging_node_constraints.reinit(strs_locally_relevant_dofs);
         DoFTools::make_hanging_node_constraints(strs_dof_handler, 
                                                 strs_hanging_node_constraints);
+        strs_hanging_node_constraints.close();
 
         // Also initialize the matrix free objects for any explicit operations
         // we may wish to perform.
@@ -138,26 +141,6 @@ namespace viscosaur
                            one_d_quad, additional_data_strs);
         vel_matrix_free.reinit(vel_dof_handler, vel_hanging_node_constraints,
                            one_d_quad, additional_data_vel);
-    }
-
-    template <int dim>
-    ConstraintMatrix*
-    ProblemData<dim>::
-    create_vel_constraints()
-    {
-        // Return a constraint matrix that just contains hanging nodes,
-        // no boundary conditions included.
-        return new ConstraintMatrix(vel_hanging_node_constraints);
-    }
-
-    template <int dim>
-    ConstraintMatrix*
-    ProblemData<dim>::
-    create_strs_constraints()
-    {
-        // Return a constraint matrix the just contains hanging nodes,
-        // no boundary conditions included.
-        return new ConstraintMatrix(strs_hanging_node_constraints);
     }
 
     template <int dim>

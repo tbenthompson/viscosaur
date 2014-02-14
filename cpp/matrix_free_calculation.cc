@@ -34,7 +34,6 @@ namespace viscosaur
         pd = &p_pd;
         mf = &p_mf;
         constraints = &p_cm;
-        constraints->close();
         compute_mass_matrix(scalar);
     }
 
@@ -94,7 +93,7 @@ namespace viscosaur
         mf->cell_loop(&MatrixFreeCalculation<dim>::local_apply, this, dst, sources);
 
         dst.scale(inv_mass_matrix);
-        //
+
         //Apply constraints to set constrained DoFs to their correct value
         constraints->distribute(dst);
 

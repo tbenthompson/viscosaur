@@ -32,9 +32,9 @@ namespace viscosaur
             pd->vel_locally_relevant_dofs, pd->mpi_comm);
 
         pd->strs_matrix_free.initialize_dof_vector(cur_strs);
-        old_strs.reinit(cur_strs);
-        old_old_strs.reinit(cur_strs);
-        tent_strs.reinit(cur_strs);
+        pd->strs_matrix_free.initialize_dof_vector(old_strs);
+        pd->strs_matrix_free.initialize_dof_vector(old_old_strs);
+        pd->strs_matrix_free.initialize_dof_vector(tent_strs);
         pd->vel_matrix_free.initialize_dof_vector(cur_vel);
         pd->vel_matrix_free.initialize_dof_vector(old_vel);
     }
@@ -48,13 +48,13 @@ namespace viscosaur
         TimerOutput::Scope t(pd->computing_timer, "init_cond");
 
         MatrixFreeCalculation<dim> mfc(*pd, pd->strs_matrix_free, 
-                *pd->create_strs_constraints());
+                pd->strs_hanging_node_constraints);
         StrsProjectionOpFactory<dim> strs_op_factory;
         mfc.op_factory = &strs_op_factory;
         mfc.apply(cur_strs, &init_strs);
 
         MatrixFreeCalculation<dim> mfc2(*pd, pd->vel_matrix_free, 
-                *pd->create_vel_constraints(), true);
+                pd->vel_hanging_node_constraints, true);
         VelProjectionOpFactory<dim> vel_op_factory;
         mfc2.op_factory = &vel_op_factory;
         mfc2.apply(cur_vel, &init_vel);
@@ -69,13 +69,13 @@ namespace viscosaur
         TimerOutput::Scope t(pd->computing_timer, "init_cond");
 
         MatrixFreeCalculation<dim> mfc(*pd, pd->strs_matrix_free, 
-                *pd->create_strs_constraints());
+                pd->strs_hanging_node_constraints);
         StrsProjectionOpFactory<dim> strs_op_factory;
         mfc.op_factory = &strs_op_factory;
         mfc.apply(old_strs, &init_strs);
 
         MatrixFreeCalculation<dim> mfc2(*pd, pd->vel_matrix_free, 
-                *pd->create_vel_constraints(), true);
+                pd->vel_hanging_node_constraints, true);
         VelProjectionOpFactory<dim> vel_op_factory;
         mfc2.op_factory = &vel_op_factory;
         mfc2.apply(old_vel, &init_vel);

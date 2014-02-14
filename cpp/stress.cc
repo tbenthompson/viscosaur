@@ -52,7 +52,7 @@ namespace viscosaur
     {
         dealii::TimerOutput::Scope t(p_pd.computing_timer, "setup_stress");
         MatrixFreeCalculation<dim>::reinit(p_pd, p_pd.strs_matrix_free,
-                *p_pd.create_strs_constraints());
+                p_pd.strs_hanging_node_constraints);
     }
 
     template <int dim>

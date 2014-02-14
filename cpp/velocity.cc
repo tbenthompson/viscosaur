@@ -106,7 +106,10 @@ namespace viscosaur
     template <int dim>
     void Velocity<dim>::update_bc(BoundaryCond<dim> &bc, Scheme<dim> &sch)
     {
-        constraints = *pd->create_vel_constraints();
+        constraints.clear();
+        constraints.reinit(pd->vel_locally_relevant_dofs);
+        DoFTools::make_hanging_node_constraints(pd->vel_dof_handler, 
+                                                constraints);
         Function<dim>* encapsulated_bc = sch.handle_bc(bc);
         VectorTools::interpolate_boundary_values(pd->vel_dof_handler,
                 0, *encapsulated_bc, constraints);

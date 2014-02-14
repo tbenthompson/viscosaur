@@ -49,7 +49,8 @@ namespace viscosaur
                    BoundaryCond<dim> &bc,
                    Scheme<dim> &sch);
 
-            void step(Solution<dim> &soln, Scheme<dim> &sch, double time_step);
+            void step(Solution<dim> &soln, 
+                      Scheme<dim> &sch, double time_step);
 
             void update_bc(BoundaryCond<dim> &bc, Scheme<dim> &sch);
         private:
