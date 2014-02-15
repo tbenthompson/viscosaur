@@ -4,6 +4,7 @@
 #include <deal.II/matrix_free/matrix_free.h>
 #include <deal.II/matrix_free/fe_evaluation.h>
 #include <deal.II/lac/parallel_vector.h>
+#include <boost/any.hpp>
 namespace viscosaur
 {
     template <int dim>
@@ -16,13 +17,13 @@ namespace viscosaur
                 const std::vector<
                     dealii::parallel::distributed::Vector <double> >&src,
                 const std::pair<unsigned int,unsigned int> &cell_range,
-                void* data) = 0;
+                boost::any data) = 0;
     };
 }
     
-//NOTE: The use of a void* data pointer allows me to keep this op factory 
+//NOTE: The use of a boost::any data pointer allows me to keep this op factory 
 //generic
-//and reduce boilerplate code. However, the downside is that it is super ugly
+//and reduce boilerplate code. However, the downside is that it is ugly
 //and requires typecasts to retrieve data at the beginning of any actual
 //application method.
 //BEGIN MACROS
@@ -45,7 +46,7 @@ namespace viscosaur
                 const std::vector<\
                     dealii::parallel::distributed::Vector <double> >&src,\
                 const std::pair<unsigned int,unsigned int> &cell_range,\
-                void* data)\
+                boost::any data)\
         {\
             VISCOSAUR_OP_CALL(1, op_cls); \
             VISCOSAUR_OP_CALL(2, op_cls); \
@@ -72,7 +73,7 @@ namespace viscosaur
              const std::vector<
                     dealii::parallel::distributed::Vector<double> > &src,
              const std::pair<unsigned int, unsigned int> &cell_range,
-             void* data)
+             boost::any data)
         {
             dealii::Tensor<1, dim, dealii::VectorizedArray<double> > tensor_one;
             for(int d = 0; d < dim; d++) 
@@ -113,7 +114,7 @@ namespace viscosaur
              const std::vector<
                     dealii::parallel::distributed::Vector<double> > &src,
              const std::pair<unsigned int, unsigned int> &cell_range,
-             void* data)
+             boost::any data)
         {
             dealii::VectorizedArray<double> one;
             for(unsigned int array_el = 0; array_el < 
@@ -156,9 +157,9 @@ namespace viscosaur
              const std::vector<
                     dealii::parallel::distributed::Vector<double> > &src,
              const std::pair<unsigned int, unsigned int> &cell_range,
-             void* data)
+             boost::any data)
         {
-            dealii::Function<dim>* fnc = (dealii::Function<dim>*)data;
+            dealii::Function<dim>* fnc = boost::any_cast<dealii::Function<dim>*>(data);
             dealii::Point<dim, dealii::VectorizedArray<double> > p_list;
             dealii::Tensor<1, dim, dealii::VectorizedArray<double> > submit_val;
             dealii::FEEvaluationGL<dim, fe_degree, dim> fe_eval(pd.strs_matrix_free);
@@ -202,9 +203,9 @@ namespace viscosaur
              const std::vector<
                     dealii::parallel::distributed::Vector<double> > &src,
              const std::pair<unsigned int, unsigned int> &cell_range,
-             void* data)
+             boost::any data)
         {
-            dealii::Function<dim>* fnc = (dealii::Function<dim>*)data;
+            dealii::Function<dim>* fnc = boost::any_cast<dealii::Function<dim>*>(data);
             dealii::Point<dim, dealii::VectorizedArray<double> > p_list;
             dealii::VectorizedArray<double> submit_val;
             dealii::FEEvaluationGL<dim, fe_degree> fe_eval(pd.vel_matrix_free);

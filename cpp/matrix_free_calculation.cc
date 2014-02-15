@@ -84,7 +84,7 @@ namespace viscosaur
     MatrixFreeCalculation<dim>::
     apply(dealii::parallel::distributed::Vector<double> &dst,
           std::vector<dealii::parallel::distributed::Vector<double> > &sources,
-          void* data)
+          boost::any data)
     {
         dst = 0;
         
@@ -105,7 +105,7 @@ namespace viscosaur
     void 
     MatrixFreeCalculation<dim>::
     apply(dealii::parallel::distributed::Vector<double> &dst,
-          void* data)
+          boost::any data)
     {
         std::vector<dealii::parallel::distributed::Vector<double> > sources(0);
         apply(dst, sources, data);

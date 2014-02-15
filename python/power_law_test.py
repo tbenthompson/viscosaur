@@ -5,18 +5,18 @@ import defaults
 
 # Set up the parameters to be used.
 params = defaults.default_params()
-params['initial_adaptive_refines'] = 30
+params['initial_adaptive_refines'] = 12
 params['max_grid_level'] = 30
 params['t_max'] = 100.0 * defaults.secs_in_a_year
-params['time_step'] = params['t_max'] / 30.0
+params['time_step'] = params['t_max'] / 2.0
 params['load_mesh'] = False
 params['mesh_filename'] = 'saved_mesh.msh'
 params['refine_frac'] = 0.2
 params['coarse_frac'] = 0.2
 params['test_output'] = False
-params['min_corner'] = vc.Point2D(10.0, 0.0)
+params['min_corner'] = vc.Point2D(1.0, 0.0)
 params['max_corner'] = vc.Point2D(5.0e4, 4.0e4)
-params['fe_degree'] = 1
+params['fe_degree'] = 4
 
 # Initial stress setup -- fed into an elastic half-space solution
 # to determine initial conditions. In the future, I could numerically
@@ -27,8 +27,8 @@ params['fault_depth'] = 1.0e4
 params['elastic_depth'] = 1.0e4
 
 # Parameters for a power law viscosity function
-params['power_law_A'] = 2.2e-4 * 10 ** (-6 * 3.4) # (Pa^-n)/sec
-params['power_law_n'] = 3.4
+params['power_law_n'] = 3.4 #dimensionless, it's an exponent!
+params['power_law_A'] = 2.2e-4 * 10 ** (-6 * params['power_law_n'])#(Pa^-n)/sec
 params['power_law_Q'] = 2.6e5 # J/mol
 params['shear_modulus'] = 3.0e10 # Pa
 # Far field plate rate boundary condition.

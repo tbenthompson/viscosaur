@@ -240,8 +240,8 @@ namespace viscosaur
         std::cout << "Processor: " + 
             Utilities::int_to_string(
                     Utilities::MPI::this_mpi_process(mpi_comm), 4) + 
-            "  with estimated error: " << percent_error <<
-            std::endl;
+            "  with estimated percent error: " << percent_error << std::endl
+            << " and estimated absolute error: " << l2_error << std::endl;
 
         const unsigned int max_grid_level = 
             bp::extract<int>(parameters["max_grid_level"]);

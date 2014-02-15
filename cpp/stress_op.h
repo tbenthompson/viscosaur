@@ -8,6 +8,7 @@
 #include <deal.II/lac/vector.h>
 #include <deal.II/lac/parallel_vector.h>
 #include <boost/python/extract.hpp>
+#include <boost/any.hpp>
 #include "solution.h"
 #include "problem_data.h"
 #include "inv_visc.h"
@@ -26,7 +27,7 @@ namespace viscosaur
                  const std::vector<
                         dealii::parallel::distributed::Vector<double> > &src,
                  const std::pair<unsigned int, unsigned int> &cell_range,
-                 void* data);
+                 boost::any data);
 
             virtual void eval(dealii::FEEvaluationGL<dim, fe_degree, dim> 
                     &cur_eval, const unsigned int q) = 0;
@@ -53,9 +54,9 @@ namespace viscosaur
                    const std::vector<
                        dealii::parallel::distributed::Vector<double> > &src,
                    const std::pair<unsigned int,unsigned int> &cell_range,
-                   void* data)
+                   boost::any data)
     {
-        double time_step = *(double *)data;
+        double time_step = *boost::any_cast<double*>(data);
         this->pd = &pd;
         const double shear_modulus = 
             bp::extract<double>(pd.parameters["shear_modulus"]);

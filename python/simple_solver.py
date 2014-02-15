@@ -58,7 +58,7 @@ class SimpleSolver(object):
                 self.vel_solver.update_bc(self.vel_bc, self.scheme)
                 self.step(time_step)
                 exact_vel.set_t(t)
-                filename = "solution-" + str(i) + "."
+                filename = "solution_" + str(i) + "."
                 if self.params['output']:
                     self.soln.output(self.params['data_dir'], filename, exact_vel)
                 # self.refine()

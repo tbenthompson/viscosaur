@@ -5,6 +5,7 @@
 #include <deal.II/base/vectorization.h>
 #include <deal.II/lac/parallel_vector.h>
 #include <deal.II/matrix_free/matrix_free.h>
+#include <boost/any.hpp>
 namespace viscosaur
 {
     //TODO: With some thought, the dependency on problem data could be 
@@ -44,10 +45,10 @@ namespace viscosaur
             void apply(dealii::parallel::distributed::Vector<double> &dst, 
                 std::vector<dealii::parallel::distributed::Vector<double> > 
                     &sources,
-                void* data);
+                boost::any data);
 
             void apply(dealii::parallel::distributed::Vector<double> &dst, 
-                void* data);
+                boost::any data);
 
             /* The partner in crime of the "apply" function above. This computes
              * one time step for one cell. What a messy declaration!
@@ -71,7 +72,7 @@ namespace viscosaur
             //that this class calls to produce its output.
             OpFactory<dim>* op_factory;
 
-            void* data;
+            boost::any data;
         protected:
             MatrixFreeCalculation() {};
     };
