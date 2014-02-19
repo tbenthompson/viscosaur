@@ -152,7 +152,7 @@ BOOST_PYTHON_MODULE(viscosaur)
     class_<vc::ConstantBC<2>, bases<vc::BoundaryCond<2> > >
         ("ConstantBC2D", init<double>());
     class_<vc::FarFieldPlateBC<2>, bases<vc::BoundaryCond<2> > >
-        ("FarFieldPlateBC2D", init<double, double>());
+        ("FarFieldPlateBC2D", init<double, double, double>());
     class_<vc::powerlaw::InvViscosityPowerLaw<2>, bases<vc::InvViscosity<2> > >(
             "InvViscosityPowerLaw2D", init<dict&>())
         .def("value", &vc::powerlaw::InvViscosityPowerLaw<2>::value)

@@ -49,21 +49,36 @@ namespace viscosaur
     class FarFieldPlateBC: public BoundaryCond<dim>
     {
         public:
-            FarFieldPlateBC(const double val, const double max_x):
+            FarFieldPlateBC(const double val, const double max_x,
+                            const double f_depth):
                 BoundaryCond<dim>()
             {
                 farfield = val; 
                 distance = max_x;
+                fault_depth = f_depth;
             }
 
             virtual double value(const dealii::Point<dim>   &p,
                                   const unsigned int  component) const
             {
-                return p[0] * (farfield / distance);
+                //Bottom of fault and the far field both slip at a slow rate
+                if(p[0] < distance)
+                {
+                    if(p[1] > fault_depth)
+                    {
+                        return farfield;
+                    }
+                }
+                else
+                {
+                    return farfield;
+                }
+                return 0;
             }
 
             double farfield;
             double distance;
+            double fault_depth;
     };
 }
 

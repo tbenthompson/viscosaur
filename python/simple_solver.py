@@ -29,28 +29,32 @@ class SimpleSolver(object):
         self.vel_solver.reinit(self.pd, self.soln, self.vel_bc, self.scheme)
         self.strs_solver.reinit(self.pd);
 
+    def initial_adaptive(self, init_strs, init_vel, exact_vel):
+        time_step = self.params['time_step'] / self.sub_timesteps
+        self.vel_bc.set_t(time_step)
+        exact_vel.set_t(time_step)
+        for i in range(self.params['initial_adaptive_refines']):
+            self.soln.apply_init_cond(init_strs, init_vel)
+            self.step(time_step)
+            if self.params['output']:
+                self.soln.output(self.params['data_dir'], 'init_refinement_' +
+                            str(i) + '.', exact_vel)
+            self.refine()
+
     def run(self, init_strs, init_vel, exact_vel):
-        sub_timesteps = self.params['first_substeps']
+        self.sub_timesteps = self.params['first_substeps']
         if not self.params["load_mesh"]:
-            time_step = self.params['time_step'] / sub_timesteps
-            self.vel_bc.set_t(time_step)
-            exact_vel.set_t(time_step)
-            for i in range(self.params['initial_adaptive_refines']):
-                self.soln.apply_init_cond(init_strs, init_vel)
-                self.step(time_step)
-                if self.params['output']:
-                    self.soln.output(self.params['data_dir'], 'init_refinement_' +
-                                str(i) + '.', exact_vel)
-                self.refine()
+            self.initial_adaptive(init_strs, init_vel, exact_vel)
             self.c.proc0_out("Done with first time step spatial adaptation.")
             self.pd.save_mesh("saved_mesh.msh")
 
         self.soln.apply_init_cond(init_strs, init_vel)
         self.t = 0
         self.step_index = 1
+        self.local_step_index = 1
         while self.t < self.params['t_max']:
-            time_step = self.params['time_step'] / sub_timesteps
-            for sub_t in range(0, sub_timesteps):
+            time_step = self.params['time_step'] / self.sub_timesteps
+            for sub_t in range(0, self.sub_timesteps):
                 self.t += time_step
                 self.c.proc0_out("\n\nSolving for time = " + \
                           str(self.t / self.params['secs_in_a_year']) + " \n")
@@ -63,12 +67,13 @@ class SimpleSolver(object):
                     self.soln.output(self.params['data_dir'], filename, exact_vel)
                 if self.step_index % self.params['refine_interval'] == 0:
                     self.refine()
-            if self.step_index == 1:
+            if self.local_step_index == 1:
                 # At the end of the first time step, we switch to using a BDF2 scheme
-                sub_timesteps = 1
+                self.sub_timesteps = 1
                 self.soln.init_multistep(init_strs, init_vel)
                 self.scheme = vc.BDFTwo2D(self.pd)
             self.step_index += 1
+            self.local_step_index += 1
             self.after_timestep()
 
     def after_timestep(self):

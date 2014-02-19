@@ -35,7 +35,8 @@ init_strs = vc.ZeroFunction2D(2)
 init_vel = vc.ConstantBC2D(0.0)
 init_vel.set_t(0.0)
 exact_vel = vc.ConstantBC2D(0.0)
-vel_bc = vc.FarFieldPlateBC2D(params['plate_rate'], params['max_corner_x'])
+vel_bc = vc.FarFieldPlateBC2D(params['plate_rate'], params['max_corner_x'],
+                              params['fault_depth'])
 
 
 class ThisTestSolver(simple_solver.SimpleSolver):
@@ -60,6 +61,10 @@ class ThisTestSolver(simple_solver.SimpleSolver):
         mfc.op_factory = strs_op_factory;
         mfc.apply_function(added_strs, added_strs_fnc);
         self.soln.cur_strs += added_strs
+        self.restart = True
+        self.sub_timesteps = self.params['first_substeps']
+        self.local_step_index = 1
+        self.scheme = vc.FwdEuler2D(self.pd)
 
 solver = ThisTestSolver(params, inv_visc, vel_bc, c)
 solver.run(init_strs, init_vel, exact_vel)
