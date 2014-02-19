@@ -57,6 +57,17 @@ namespace viscosaur
                 return retval;
             }
 
+            double value_easy(const dealii::Point<dim>  &p,
+                                 const double szx, 
+                                 const double szy) 
+            {
+                dealii::Tensor<1, dim> strs;
+                strs[0] = szx;
+                strs[1] = szy;
+                return value(p, strs);
+            }
+
+
             virtual double value(const dealii::Point<dim>  &p,
                                  const dealii::Tensor<1, dim> strs) const = 0;
 

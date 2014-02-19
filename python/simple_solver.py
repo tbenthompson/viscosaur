@@ -20,7 +20,7 @@ class SimpleSolver(object):
         self.strs_solver.correction_step(self.soln, self.scheme, time_step)
 
     def refine(self):
-        self.pd.start_refine(self.soln.current_velocity)
+        self.pd.start_refine(self.soln.cur_vel)
         self.soln.start_refine()
         self.pd.execute_refine()
         self.soln.reinit()
@@ -46,25 +46,30 @@ class SimpleSolver(object):
             self.pd.save_mesh("saved_mesh.msh")
 
         self.soln.apply_init_cond(init_strs, init_vel)
-        t = 0
-        i = 1
-        while t < self.params['t_max']:
+        self.t = 0
+        self.step_index = 1
+        while self.t < self.params['t_max']:
             time_step = self.params['time_step'] / sub_timesteps
             for sub_t in range(0, sub_timesteps):
-                t += time_step
+                self.t += time_step
                 self.c.proc0_out("\n\nSolving for time = " + \
-                          str(t / self.params['secs_in_a_year']) + " \n")
-                self.vel_bc.set_t(t)
+                          str(self.t / self.params['secs_in_a_year']) + " \n")
+                self.vel_bc.set_t(self.t)
                 self.vel_solver.update_bc(self.vel_bc, self.scheme)
                 self.step(time_step)
-                exact_vel.set_t(t)
-                filename = "solution_" + str(i) + "."
-                if self.params['output']:
+                exact_vel.set_t(self.t)
+                filename = "solution_" + str(self.step_index) + "."
+                if self.params['output'] and self.step_index % self.params['output_interval'] == 0:
                     self.soln.output(self.params['data_dir'], filename, exact_vel)
-                # self.refine()
-            if i == 1:
+                if self.step_index % self.params['refine_interval'] == 0:
+                    self.refine()
+            if self.step_index == 1:
                 # At the end of the first time step, we switch to using a BDF2 scheme
                 sub_timesteps = 1
                 self.soln.init_multistep(init_strs, init_vel)
                 self.scheme = vc.BDFTwo2D(self.pd)
-            i += 1
+            self.step_index += 1
+            self.after_timestep()
+
+    def after_timestep(self):
+        pass

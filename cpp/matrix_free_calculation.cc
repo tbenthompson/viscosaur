@@ -3,6 +3,7 @@
 #include "problem_data.h"
 
 #include <boost/python/extract.hpp>
+#include <deal.II/base/function.h>
 namespace viscosaur
 {
     using namespace dealii;
@@ -109,6 +110,15 @@ namespace viscosaur
     {
         std::vector<dealii::parallel::distributed::Vector<double> > sources(0);
         apply(dst, sources, data);
+    }
+
+    template <int dim>
+    void 
+    MatrixFreeCalculation<dim>::
+    apply_function(dealii::parallel::distributed::Vector<double> &dst,
+                   dealii::Function<dim> &data)
+    {
+        apply(dst, &data);
     }
 
     template <int dim> 

@@ -111,14 +111,23 @@ namespace viscosaur
         DoFTools::make_hanging_node_constraints(pd->vel_dof_handler, 
                                                 constraints);
         Function<dim>* encapsulated_bc = sch.handle_bc(bc);
+        //Boundary 0 is the fault, locked? or rate-state?, sliding at depth?
+        //Boundary 1 is the far-field plate
+        //Boundary 2 is the surface, should be stress free
+        //Boundary 3 is the deep
         VectorTools::interpolate_boundary_values(pd->vel_dof_handler,
                 0, *encapsulated_bc, constraints);
         VectorTools::interpolate_boundary_values(pd->vel_dof_handler,
                 1, *encapsulated_bc, constraints);
         // VectorTools::interpolate_boundary_values(pd->vel_dof_handler,
         //         2, *encapsulated_bc, constraints);
-        VectorTools::interpolate_boundary_values(pd->vel_dof_handler,
-                3, *encapsulated_bc, constraints);
+        const bool mantle_neumann = 
+            bp::extract<bool>(pd->parameters["mantle_neumann"]);
+        if (!mantle_neumann)
+        {
+            VectorTools::interpolate_boundary_values(pd->vel_dof_handler,
+                    3, *encapsulated_bc, constraints);
+        }
         constraints.close();
     }
 

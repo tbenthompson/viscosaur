@@ -50,6 +50,9 @@ namespace viscosaur
             void apply(dealii::parallel::distributed::Vector<double> &dst, 
                 boost::any data);
 
+            void apply_function(dealii::parallel::distributed::Vector<double> &dst, 
+                dealii::Function<dim> &data);
+
             /* The partner in crime of the "apply" function above. This computes
              * one time step for one cell. What a messy declaration!
              */

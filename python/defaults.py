@@ -14,9 +14,11 @@ def default_params():
 
     # Meshing descriptors.
     # minimum corner(x_min, y_min)
-    defaults['min_corner'] = vc.Point2D(50.0, 0.0)
+    defaults['min_corner_x'] = 50.0
+    defaults['min_corner_y'] = 0.0
     # maximum corner(x_max, y_max)
-    defaults['max_corner'] = vc.Point2D(5.0e4, 4.0e4)
+    defaults['max_corner_x'] = 5.0e4
+    defaults['max_corner_y'] = 4.0e4
 
     # Polynomial degree of the elements.
     defaults['fe_degree'] = 2
@@ -33,9 +35,12 @@ def default_params():
     defaults['initial_isotropic_refines'] = 3
     defaults['initial_adaptive_refines'] = 8
 
+    # How often to refine once running
+    defaults['refine_interval'] = 50
+
     # Maximum and minimum refinement levels
     defaults['max_grid_level'] = 14
-    defaults['min_grid_level'] = 3
+    defaults['min_grid_level'] = 2
 
     # Refinement and coarsening percentages
     defaults['refine_frac'] = 0.2
@@ -59,8 +64,14 @@ def default_params():
     #Compare the output to an analytic solution?
     defaults['test_output'] = False
 
+    # How often to output
+    defaults['output_interval'] = 50
+
     # Should we plot?
     defaults['output'] = True
+
+    #Should the mantle boundary conditions be neumann or dirichlet?
+    defaults['mantle_neumann'] = False
 
     return defaults
 

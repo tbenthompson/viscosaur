@@ -6,6 +6,8 @@
     #error "Python 3?!" 
 #endif
 #include <boost/python.hpp>
+#include <boost/python/suite/indexing/indexing_suite.hpp>
+#include <boost/python/suite/indexing/vector_indexing_suite.hpp>
 #include <boost/array.hpp>
 
 #include "tla.h"
@@ -43,11 +45,19 @@ BOOST_PYTHON_MODULE(viscosaur)
     class_<dealii::Point<2> >("Point2D", init<double, double>());
     class_<dealii::Function<2>, boost::noncopyable>("Function2D", no_init)
         .def("value", pure_virtual(&dealii::Function<2>::value));
-    class_<dealii::ZeroFunction<2>, boost::noncopyable>("ZeroFunction2D", no_init)
+    class_<dealii::ZeroFunction<2>, boost::noncopyable,
+        bases<dealii::Function<2> > >("ZeroFunction2D", init<int>())
         .def("value", &dealii::ZeroFunction<2>::value);
-    class_<dealii::PETScWrappers::MPI::Vector>("PETScVector", no_init);
+    class_<dealii::PETScWrappers::MPI::Vector>("PETScMPIVector", no_init);
     class_<dealii::DoFHandler<2>, boost::noncopyable>("DoFHander2D", no_init);
-    class_<dealii::parallel::distributed::Vector<double> >("MPIVector", no_init);
+    void (dealii::MatrixFree<2>::*init_dof_vector)
+        (dealii::parallel::distributed::Vector<double>&, unsigned int) const
+        = &dealii::MatrixFree<2>::initialize_dof_vector;
+    class_<dealii::MatrixFree<2>, boost::noncopyable>("MatrixFree2D", no_init)
+        .def("initialize_dof_vector", init_dof_vector);
+    class_<dealii::ConstraintMatrix, boost::noncopyable>("ConstraintMatrix", no_init);
+    class_<dealii::parallel::distributed::Vector<double> >("MPIVector", init<>())
+        .def(self += dealii::parallel::distributed::Vector<double>());
     
 
     /* Basic viscosaur functions.
@@ -72,7 +82,8 @@ BOOST_PYTHON_MODULE(viscosaur)
         .def("start_timestep", &vc::Solution<2>::start_timestep)
         .def("start_refine", &vc::Solution<2>::start_refine)
         .def("post_refine", &vc::Solution<2>::post_refine)
-        .def_readonly("current_velocity", &vc::Solution<2>::cur_vel);
+        .def_readwrite("cur_vel", &vc::Solution<2>::cur_vel)
+        .def_readwrite("cur_strs", &vc::Solution<2>::cur_strs);
 
     // double (vc::InvViscosity<2>::*f_value)(const dealii::Point<2>&,
     //                                        const double)= &vc::InvViscosity<2>::value;
@@ -80,6 +91,7 @@ BOOST_PYTHON_MODULE(viscosaur)
     class_<vc::InvViscosityTLA<2>, bases<vc::InvViscosity<2> > >(
             "InvViscosityTLA2D", init<dict&>())
         .def("value", &vc::InvViscosityTLA<2>::value)
+        .def("value_easy", &vc::InvViscosityTLA<2>::value_easy)
         .def("strs_deriv", &vc::InvViscosityTLA<2>::strs_deriv);
     /* Expose the Velocity solver. I separate the 2D and 3D because exposing    
      * the templating to python is difficult.
@@ -92,7 +104,13 @@ BOOST_PYTHON_MODULE(viscosaur)
                 [with_custodian_and_ward<1,3>()])
         .def("start_refine", &vc::ProblemData<2>::start_refine)
         .def("execute_refine", &vc::ProblemData<2>::execute_refine)
-        .def("save_mesh", &vc::ProblemData<2>::save_mesh);
+        .def("save_mesh", &vc::ProblemData<2>::save_mesh)
+        .def_readonly("strs_matrix_free",
+                &vc::ProblemData<2>::strs_matrix_free)
+        .def_readonly("strs_hanging_node_constraints",
+                &vc::ProblemData<2>::strs_hanging_node_constraints)
+        .def_readonly("vel_matrix_free",
+                &vc::ProblemData<2>::vel_matrix_free);
 
     class_<vc::Velocity<2>, boost::noncopyable>("Velocity2D", 
         init<vc::ProblemData<2>&, vc::Solution<2>&, 
@@ -119,8 +137,22 @@ BOOST_PYTHON_MODULE(viscosaur)
         .def("reinit", &vc::BDFTwo<2>::reinit);
 
 
+    class_<vc::OpFactory<2>, boost::noncopyable>("OpFactory2D", no_init);
+    class_<vc::StrsProjectionOpFactory<2>, boost::noncopyable,
+           bases<vc::OpFactory<2> > >(
+            "StrsProjectionOpFactory2D", init<>());
+    class_<vc::MatrixFreeCalculation<2>, boost::noncopyable>(
+            "MatrixFreeCalculation2D", 
+            init<vc::ProblemData<2>&, dealii::MatrixFree<2>&, 
+                 dealii::ConstraintMatrix&>())
+        .def_readwrite("op_factory", &vc::MatrixFreeCalculation<2>::op_factory)
+        .def("apply_function", &vc::MatrixFreeCalculation<2>::apply_function);
+
+
     class_<vc::ConstantBC<2>, bases<vc::BoundaryCond<2> > >
         ("ConstantBC2D", init<double>());
+    class_<vc::FarFieldPlateBC<2>, bases<vc::BoundaryCond<2> > >
+        ("FarFieldPlateBC2D", init<double, double>());
     class_<vc::powerlaw::InvViscosityPowerLaw<2>, bases<vc::InvViscosity<2> > >(
             "InvViscosityPowerLaw2D", init<dict&>())
         .def("value", &vc::powerlaw::InvViscosityPowerLaw<2>::value)

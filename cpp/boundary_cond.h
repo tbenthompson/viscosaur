@@ -44,6 +44,27 @@ namespace viscosaur
 
             double retval;
     };
+
+    template <int dim>
+    class FarFieldPlateBC: public BoundaryCond<dim>
+    {
+        public:
+            FarFieldPlateBC(const double val, const double max_x):
+                BoundaryCond<dim>()
+            {
+                farfield = val; 
+                distance = max_x;
+            }
+
+            virtual double value(const dealii::Point<dim>   &p,
+                                  const unsigned int  component) const
+            {
+                return p[0] * (farfield / distance);
+            }
+
+            double farfield;
+            double distance;
+    };
 }
 
 #endif

@@ -178,8 +178,12 @@ namespace viscosaur
     template <int dim>
     void ProblemData<dim>::generate_mesh()
     {
-        Point<dim> min = bp::extract<Point<dim> >(parameters["min_corner"]);
-        Point<dim> max = bp::extract<Point<dim> >(parameters["max_corner"]);
+        double min_x = bp::extract<double>(parameters["min_corner_x"]);
+        double min_y = bp::extract<double>(parameters["min_corner_y"]);
+        double max_x = bp::extract<double>(parameters["max_corner_x"]);
+        double max_y = bp::extract<double>(parameters["max_corner_y"]);
+        Point<dim> min(min_x, min_y);
+        Point<dim> max(max_x, max_y);
         std::vector<unsigned int> n_subdivisions;
         
         n_subdivisions.push_back(1);
