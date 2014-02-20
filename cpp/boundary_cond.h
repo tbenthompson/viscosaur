@@ -1,6 +1,7 @@
 
 #ifndef __viscosaur_boundary_cond_h
 #define __viscosaur_boundary_cond_h
+#include "tla.h"
 #include <deal.II/base/function.h>
 
 namespace viscosaur
@@ -50,7 +51,7 @@ namespace viscosaur
     {
         public:
             FarFieldPlateBC(const double val, const double max_x,
-                            const double f_depth):
+                            const double f_depth, TLA::SlipFnc slip_fnc):
                 BoundaryCond<dim>()
             {
                 farfield = val; 
@@ -64,7 +65,7 @@ namespace viscosaur
                 //Bottom of fault and the far field both slip at a slow rate
                 if(p[0] < distance)
                 {
-                    if(p[1] > fault_depth)
+                    if(p[1] >= fault_depth)
                     {
                         return farfield;
                     }

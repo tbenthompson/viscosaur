@@ -67,6 +67,7 @@ class SimpleSolver(object):
                     self.soln.output(self.params['data_dir'], filename, exact_vel)
                 if self.step_index % self.params['refine_interval'] == 0:
                     self.refine()
+                    self.pd.save_mesh("saved_mesh.msh")
             if self.local_step_index == 1:
                 # At the end of the first time step, we switch to using a BDF2 scheme
                 self.sub_timesteps = 1
@@ -75,6 +76,8 @@ class SimpleSolver(object):
             self.step_index += 1
             self.local_step_index += 1
             self.after_timestep()
+            if self.params['output'] and (self.step_index - 1) % self.params['output_interval'] == 0:
+                self.soln.output(self.params['data_dir'], 'after_' + filename, exact_vel)
 
     def after_timestep(self):
         pass

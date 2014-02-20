@@ -6,14 +6,15 @@ import defaults
 # Set up the parameters to be used.
 params = defaults.default_params()
 params['initial_adaptive_refines'] = 1
-params['max_grid_level'] = 9
-params['t_max'] = 100000.0 * defaults.secs_in_a_year
+params['max_grid_level'] = 8
+params['t_max'] = 100.0 * defaults.secs_in_a_year
 params['time_step'] = defaults.secs_in_a_year * 10.0
 params['test_output'] = False
 params['min_corner_x'] = 50.0
 params['refine_interval'] = 5
 params['output_interval'] = 5
-params["mesh_filename"] = 'svdmesh.mesh'
+params['load_mesh'] = True
+params["mesh_filename"] = 'saved_mesh.msh'
 
 params['fault_depth'] = 1.0e4
 params['elastic_depth'] = 1.0e4
@@ -43,6 +44,7 @@ class ThisTestSolver(simple_solver.SimpleSolver):
     def after_timestep(self):
         if ((self.t / self.params['secs_in_a_year']) % 100) > 1.0:
             return
+
         # Add an earthquake with a certain amount of fault_slip to the stress.
         # In other words, this adds the stress field from a screw dislocation
         # to the existing stress field
@@ -61,7 +63,8 @@ class ThisTestSolver(simple_solver.SimpleSolver):
         mfc.op_factory = strs_op_factory;
         mfc.apply_function(added_strs, added_strs_fnc);
         self.soln.cur_strs += added_strs
-        self.restart = True
+
+        # This restarts the time stepping to use a 1st order method again.
         self.sub_timesteps = self.params['first_substeps']
         self.local_step_index = 1
         self.scheme = vc.FwdEuler2D(self.pd)
