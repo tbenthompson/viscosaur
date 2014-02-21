@@ -13,7 +13,7 @@ class Controller(object):
         mpi = ctypes.CDLL('libmpi.so.0', ctypes.RTLD_GLOBAL)
         # Initialize the viscosaur system, including deal.ii, PETSc (or Trilinos),
         # and MPI.
-        self.instance = vc.Vc(sys.argv)
+        self.instance = vc.Vc(sys.argv, p)
         self.params = p
         self.mpi_rank = self.instance.get_rank()
         self._prep_data_dir()

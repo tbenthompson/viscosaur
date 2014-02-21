@@ -12,6 +12,9 @@ def default_params():
     # Please don't change this....
     defaults['secs_in_a_year'] = secs_in_a_year
 
+    #Number of threads to run per MPI process
+    defaults['num_threads'] = 1
+
     # Meshing descriptors.
     # minimum corner(x_min, y_min)
     defaults['min_corner_x'] = 50.0
@@ -29,17 +32,17 @@ def default_params():
 
     # Should we load a mesh or create a coarse version and refine it?
     defaults["load_mesh"] = False
-    defaults["mesh_filename"] = None
+    defaults["mesh_filename"] = 'silly_mesh_filename.mesh'
 
     # How many times to isotropically refine the grid initially.
-    defaults['initial_isotropic_refines'] = 3
-    defaults['initial_adaptive_refines'] = 8
+    defaults['initial_isotropic_refines'] = 4
+    defaults['initial_adaptive_refines'] = 0
 
     # How often to refine once running
-    defaults['refine_interval'] = 50
+    defaults['refine_interval'] = 10
 
     # Maximum and minimum refinement levels
-    defaults['max_grid_level'] = 14
+    defaults['max_grid_level'] = 10
     defaults['min_grid_level'] = 2
 
     # Refinement and coarsening percentages
@@ -49,9 +52,6 @@ def default_params():
     # time stepping
     defaults['t_max'] = 100.0 * secs_in_a_year
     defaults['time_step'] = defaults['t_max'] / 100.0
-    # How many little steps to take on the first step to make sure that
-    # the error is not too high for the higher order BDF2 time stepper.
-    defaults['first_substeps'] = 10
 
     # Clears the data directory at the beginning of computation.
     defaults['clear_data_dir'] = True
@@ -69,9 +69,6 @@ def default_params():
 
     # Should we plot?
     defaults['output'] = True
-
-    #Should the mantle boundary conditions be neumann or dirichlet?
-    defaults['mantle_neumann'] = False
 
     return defaults
 

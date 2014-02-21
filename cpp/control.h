@@ -7,6 +7,7 @@ namespace boost
     namespace python
     {
         class list;
+        class dict;
     }
 }
 namespace dealii
@@ -58,7 +59,7 @@ namespace viscosaur
     class Vc
     {
         public:
-            Vc(boost::python::list args);
+            Vc(boost::python::list args, boost::python::dict params);
             ~Vc();
 
             int get_rank();

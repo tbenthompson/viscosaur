@@ -22,19 +22,14 @@ namespace viscosaur
         reinit();
     }
 
-
     template<int dim>
     void
     Solution<dim>::
     reinit()
     {
-        poisson_soln.reinit(pd->vel_locally_owned_dofs,
-            pd->vel_locally_relevant_dofs, pd->mpi_comm);
-
+        TimerOutput::Scope t(pd->computing_timer, "setup_solution");
         pd->strs_matrix_free.initialize_dof_vector(cur_strs);
         pd->strs_matrix_free.initialize_dof_vector(old_strs);
-        pd->strs_matrix_free.initialize_dof_vector(old_old_strs);
-        pd->strs_matrix_free.initialize_dof_vector(tent_strs);
         pd->vel_matrix_free.initialize_dof_vector(cur_vel);
         pd->vel_matrix_free.initialize_dof_vector(old_vel);
     }
@@ -63,31 +58,9 @@ namespace viscosaur
     template <int dim>
     void
     Solution<dim>::
-    init_multistep(Function<dim> &init_strs,
-                   Function<dim> &init_vel)
-    {
-        TimerOutput::Scope t(pd->computing_timer, "init_cond");
-
-        MatrixFreeCalculation<dim> mfc(*pd, pd->strs_matrix_free, 
-                pd->strs_hanging_node_constraints);
-        StrsProjectionOpFactory<dim> strs_op_factory;
-        mfc.op_factory = &strs_op_factory;
-        mfc.apply(old_strs, &init_strs);
-
-        MatrixFreeCalculation<dim> mfc2(*pd, pd->vel_matrix_free, 
-                pd->vel_hanging_node_constraints, true);
-        VelProjectionOpFactory<dim> vel_op_factory;
-        mfc2.op_factory = &vel_op_factory;
-        mfc2.apply(old_vel, &init_vel);
-    }
-
-    template <int dim>
-    void
-    Solution<dim>::
     start_timestep()
     {
         //Flip the solns to retain the old soln.
-        old_old_strs.swap(old_strs);
         old_strs.swap(cur_strs);
         old_vel.swap(cur_vel);
     }
@@ -142,7 +115,6 @@ namespace viscosaur
             data_out.add_data_vector(pd->vel_dof_handler, error, "error");
         }
         data_out.add_data_vector(pd->vel_dof_handler, cur_vel, "vel");
-        data_out.add_data_vector(pd->vel_dof_handler, poisson_soln, "poisson_soln");
 
         // Output the stresses.
         std::vector<std::string> old_solution_names(2);
@@ -158,13 +130,6 @@ namespace viscosaur
         //Current stresses
         data_out.add_data_vector(pd->strs_dof_handler, cur_strs, cur_solution_names);
                                  
-        std::vector<std::string> tent_solution_names(2);
-        tent_solution_names[0] = "tent_szx";
-        tent_solution_names[1] = "tent_szy";
-        //Tentative stresses
-        data_out.add_data_vector(pd->strs_dof_handler, tent_strs, tent_solution_names);
-
-
         Vector<float> subdomain(pd->triangulation.n_active_cells());
         unsigned int this_subd = pd->triangulation.locally_owned_subdomain();
         for (unsigned int i = 0; i < subdomain.size(); ++i)
@@ -181,19 +146,27 @@ namespace viscosaur
         {
             // Build the list of filenames to store in the master pvtu file
             std::vector<std::string> files;
+            // And the list for the cross-time visit controller file
+            static std::vector<std::vector<std::string> > filenames;
             for (unsigned int i=0;
                     i<Utilities::MPI::n_mpi_processes(pd->mpi_comm);
                     ++i)
             {
-                files.push_back(filename + 
-                    Utilities::int_to_string(i, 4) + ".vtu");
+                std::string name = filename + 
+                    Utilities::int_to_string(i, 4) + ".vtu";
+                files.push_back(name);
             }
+            filenames.push_back(files);
 
-            std::ofstream master_output((data_dir + "/" + filename + 
-                    Utilities::int_to_string(this_subd, 4) + ".pvtu").c_str());
+            std::string pvtu_master_filename = filename + 
+                    Utilities::int_to_string(this_subd, 4) + ".pvtu";
+            std::ofstream master_output((data_dir + "/" + pvtu_master_filename).c_str());
             // Write the master pvtu record. Load this pvtu file if you want
             // to view all the data at once. Use a tool like visit or paraview.
             data_out.write_pvtu_record(master_output, files);
+
+            std::ofstream visit_output((data_dir + "/master.visit").c_str());
+            data_out.write_visit_record(visit_output, filenames);
         }
     }
 

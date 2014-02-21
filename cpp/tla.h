@@ -4,12 +4,10 @@
 #include <deal.II/base/function.h>
 #include <gsl/gsl_integration.h>
 #include <deal.II/lac/generic_linear_algebra.h>
-#include <deal.II/lac/petsc_parallel_vector.h>
 #include <deal.II/numerics/vector_tools.h>
 #include <deal.II/base/utilities.h>
 #include "linear_algebra.h"
 #include "problem_data.h"
-#include "boundary_cond.h"
 
 namespace boost 
 {
@@ -150,22 +148,29 @@ namespace viscosaur
         };
 
         template <int dim>
-        class SimpleVelocity: public BoundaryCond<dim>
+        class SimpleVelocity: public dealii::Function<dim>
         {
             public:
                 SimpleVelocity(TwoLayerAnalytic &p_tla):
-                    BoundaryCond<dim>()
+                    dealii::Function<dim>(1)
                 {
                     tla = &p_tla;
+                    t = 0;
                 } 
+
+                void set_t(double p_t)
+                {
+                    t = p_t;
+                }
 
                 virtual double value (const dealii::Point<dim>   &p,
                                       const unsigned int  component) const
                 {
-                    return tla->simple_velocity(p(0), p(1), this->t_);
+                    return tla->simple_velocity(p(0), p(1), t);
                 }
             private:
                 TwoLayerAnalytic* tla;
+                double t;
         };
     }
 }

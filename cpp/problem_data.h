@@ -6,7 +6,7 @@
 #include <deal.II/lac/generic_linear_algebra.h>
 #include <deal.II/lac/petsc_parallel_vector.h>
 #include <deal.II/lac/parallel_vector.h>
-#include <deal.II/fe/fe_q.h>
+#include <deal.II/fe/fe_dgq.h>
 #include <deal.II/fe/fe_system.h>
 #include <deal.II/dofs/dof_handler.h>
 #include <deal.II/base/utilities.h>
@@ -34,8 +34,7 @@ namespace viscosaur
     class ProblemData
     {
         public:
-            ProblemData(boost::python::dict &params,
-                        InvViscosity<dim>* inv_visc);
+            ProblemData(boost::python::dict &params);
             ~ProblemData();
             void start_refine(
                     dealii::parallel::distributed::Vector<double> &soln);
@@ -60,10 +59,8 @@ namespace viscosaur
             dealii::TimerOutput           computing_timer;
             dealii::parallel::distributed::Triangulation<dim> triangulation;
 
-            InvViscosity<dim>*            inv_visc;
-
             dealii::DoFHandler<dim>       vel_dof_handler;
-            dealii::FE_Q<dim>             vel_fe;
+            dealii::FE_DGQArbitraryNodes<dim> vel_fe;
             dealii::IndexSet              vel_locally_owned_dofs;
             dealii::IndexSet              vel_locally_relevant_dofs;
             dealii::ConstraintMatrix      vel_hanging_node_constraints;

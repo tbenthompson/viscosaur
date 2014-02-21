@@ -1,5 +1,4 @@
 #include "problem_data.h"
-#include "inv_visc.h"
 
 #include <deal.II/base/quadrature_lib.h>
 #include <deal.II/base/timer.h>
@@ -8,7 +7,6 @@
 #include <deal.II/lac/full_matrix.h>
 #include <deal.II/lac/solver_cg.h>
 #include <deal.II/lac/constraint_matrix.h>
-#include <deal.II/lac/compressed_simple_sparsity_pattern.h>
 
 #include <deal.II/grid/grid_generator.h>
 #include <deal.II/grid/tria_accessor.h>
@@ -16,7 +14,6 @@
 #include <deal.II/dofs/dof_tools.h>
 #include <deal.II/numerics/error_estimator.h>
 
-#include <deal.II/lac/sparsity_tools.h>
 #include <deal.II/distributed/grid_refinement.h>
 
 #include <boost/python/extract.hpp>
@@ -27,8 +24,7 @@ namespace viscosaur
     using namespace dealii;
     namespace bp = boost::python;
     template <int dim>
-    ProblemData<dim>::ProblemData(bp::dict &params,
-                        InvViscosity<dim>* inv_visc):
+    ProblemData<dim>::ProblemData(bp::dict &params):
         mpi_comm(MPI_COMM_WORLD),
         triangulation(mpi_comm,
                 typename Triangulation<dim>::MeshSmoothing
@@ -43,9 +39,10 @@ namespace viscosaur
         vel_dof_handler(triangulation),
         vel_fe(QGaussLobatto<1>(bp::extract<int>(parameters["fe_degree"]) + 1)),
         strs_dof_handler(triangulation),
-        strs_fe(FE_Q<dim>(QGaussLobatto<1>(
-                    bp::extract<int>(parameters["fe_degree"]) + 1)), dim)
+        strs_fe(FE_DGQArbitraryNodes<dim>(
+                    QGaussLobatto<1>(bp::extract<int>(parameters["fe_degree"]) + 1)), dim)
     {
+        TimerOutput::Scope t(computing_timer, "setup_problem_data");
         const std::string filename = bp::extract<std::string>(
                 parameters["mesh_filename"]);
         bool should_load_mesh = 
@@ -74,7 +71,6 @@ namespace viscosaur
             initial_refinement();
         }
         init_dofs();
-        this->inv_visc = inv_visc;
     }
 
     template <int dim>
@@ -129,36 +125,19 @@ namespace viscosaur
         typename MatrixFree<dim>::AdditionalData additional_data_strs;
         additional_data_strs.mapping_update_flags = (update_values |
                                           update_JxW_values |
-                                          update_quadrature_points);
+                                          update_quadrature_points |
+                                          update_gradients);
         additional_data_strs.mpi_communicator = mpi_comm;
 
         typename MatrixFree<dim>::AdditionalData additional_data_vel;
         additional_data_vel.mapping_update_flags = update_gradients |
-                                                    update_quadrature_points;
+                                                   update_quadrature_points;
         additional_data_vel.mpi_communicator = mpi_comm;
 
         strs_matrix_free.reinit(strs_dof_handler, strs_hanging_node_constraints,
                            one_d_quad, additional_data_strs);
         vel_matrix_free.reinit(vel_dof_handler, vel_hanging_node_constraints,
                            one_d_quad, additional_data_vel);
-    }
-
-    template <int dim>
-    CompressedSimpleSparsityPattern*
-    ProblemData<dim>::
-    create_vel_sparsity_pattern(ConstraintMatrix &constraints)
-    {
-        // Create a sparsity pattern for the given constraint matrix.
-        CompressedSimpleSparsityPattern* csp = new 
-            CompressedSimpleSparsityPattern(vel_locally_relevant_dofs);
-        DoFTools::make_sparsity_pattern(vel_dof_handler, *csp, constraints, false);
-
-        // Share it amongst all processors.
-        SparsityTools::distribute_sparsity_pattern(*csp,
-                vel_dof_handler.n_locally_owned_dofs_per_processor(),
-                mpi_comm,
-                vel_locally_relevant_dofs);
-        return csp;
     }
 
     template <int dim>
@@ -218,6 +197,11 @@ namespace viscosaur
 
 
 
+    /* Begins the refinement process. Call should be succeeded by calls
+     * to the refinement functions in Solution and then by execute_refine.
+     * The refinement_measure parameter must be a velocity field. This 
+     * constraint could be relaxed easily with a small amount of coding
+     */
     template <int dim>
     void 
     ProblemData<dim>::
