@@ -43,7 +43,7 @@ namespace viscosaur
              * be easily inverted.
              */
             void apply(dealii::parallel::distributed::Vector<double> &dst, 
-                std::vector<dealii::parallel::distributed::Vector<double> > 
+                std::vector<dealii::parallel::distributed::Vector<double>* > 
                     &sources,
                 boost::any data);
 
@@ -59,7 +59,7 @@ namespace viscosaur
             void local_apply(const dealii::MatrixFree<dim> &data,
                 dealii::parallel::distributed::Vector<double> &dst,
                 const std::vector<
-                    dealii::parallel::distributed::Vector <double> > &src,
+                    dealii::parallel::distributed::Vector<double>* > &src,
                 const std::pair<unsigned int, unsigned int> &cell_range);
 
             ProblemData<dim>* pd;

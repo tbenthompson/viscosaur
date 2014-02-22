@@ -9,11 +9,12 @@ params['min_corner_x'] = -5.0
 params['min_corner_y'] = -5.0
 params['max_corner_x'] = 5.0
 params['max_corner_y'] = 5.0
-params['t_max'] = 5.0
-params['time_step'] = params['t_max'] / 250.0
+params['t_max'] = 16.0
+params['time_step'] = 0.02
 params['test_output'] = False
-params['num_threads'] = 4
-params['fe_degree'] = 1
+params['num_threads'] = 1
+params['fe_degree'] = 2
+params['initial_isotropic_refines'] = 5
 
 params['fault_depth'] = 1e4
 params['viscosity'] = 5.0e19
@@ -30,7 +31,6 @@ init_vel = vc.ZeroFunction2D(1)
 
 soln.apply_init_cond(init_strs, init_vel);
 soln.output(params['data_dir'], 'play.', init_vel)
-soln.start_timestep()
 
 inv_visc = vc.InvViscosityTLA2D(params)
 inv_rho = 1.0#1.0 / 1e20;

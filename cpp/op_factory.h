@@ -15,7 +15,7 @@ namespace viscosaur
                 ProblemData<dim> &pd,
                 dealii::parallel::distributed::Vector<double> &dst,
                 const std::vector<
-                    dealii::parallel::distributed::Vector <double> >&src,
+                    dealii::parallel::distributed::Vector<double>* >&src,
                 const std::pair<unsigned int,unsigned int> &cell_range,
                 boost::any data) = 0;
     };
@@ -44,7 +44,7 @@ namespace viscosaur
                 ProblemData<dim> &pd,\
                 dealii::parallel::distributed::Vector<double> &dst,\
                 const std::vector<\
-                    dealii::parallel::distributed::Vector <double> >&src,\
+                    dealii::parallel::distributed::Vector<double>* >&src,\
                 const std::pair<unsigned int,unsigned int> &cell_range,\
                 boost::any data)\
         {\
@@ -71,7 +71,7 @@ namespace viscosaur
         void hp_local_apply(ProblemData<dim> &pd, 
              dealii::parallel::distributed::Vector<double> &dst,
              const std::vector<
-                    dealii::parallel::distributed::Vector<double> > &src,
+                    dealii::parallel::distributed::Vector<double>* > &src,
              const std::pair<unsigned int, unsigned int> &cell_range,
              boost::any data)
         {
@@ -112,7 +112,7 @@ namespace viscosaur
         void hp_local_apply(ProblemData<dim> &pd, 
              dealii::parallel::distributed::Vector<double> &dst,
              const std::vector<
-                    dealii::parallel::distributed::Vector<double> > &src,
+                    dealii::parallel::distributed::Vector<double>* > &src,
              const std::pair<unsigned int, unsigned int> &cell_range,
              boost::any data)
         {
@@ -155,7 +155,7 @@ namespace viscosaur
         void hp_local_apply(ProblemData<dim> &pd, 
              dealii::parallel::distributed::Vector<double> &dst,
              const std::vector<
-                    dealii::parallel::distributed::Vector<double> > &src,
+                    dealii::parallel::distributed::Vector<double>* > &src,
              const std::pair<unsigned int, unsigned int> &cell_range,
              boost::any data)
         {
@@ -201,7 +201,7 @@ namespace viscosaur
         void hp_local_apply(ProblemData<dim> &pd, 
              dealii::parallel::distributed::Vector<double> &dst,
              const std::vector<
-                    dealii::parallel::distributed::Vector<double> > &src,
+                    dealii::parallel::distributed::Vector<double>* > &src,
              const std::pair<unsigned int, unsigned int> &cell_range,
              boost::any data)
         {

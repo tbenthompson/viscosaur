@@ -57,7 +57,7 @@ namespace viscosaur
         }
         
         // Use the mass matrix operator 
-        std::vector<dealii::parallel::distributed::Vector <double> >
+        std::vector<dealii::parallel::distributed::Vector<double>* >
             empty_source(0);
 
         mf->cell_loop(&MatrixFreeCalculation<dim>::local_apply, this, inv_mass_matrix,
@@ -84,7 +84,7 @@ namespace viscosaur
     void 
     MatrixFreeCalculation<dim>::
     apply(dealii::parallel::distributed::Vector<double> &dst,
-          std::vector<dealii::parallel::distributed::Vector<double> > &sources,
+          std::vector<dealii::parallel::distributed::Vector<double>* > &sources,
           boost::any data)
     {
         dst = 0;
@@ -108,7 +108,7 @@ namespace viscosaur
     apply(dealii::parallel::distributed::Vector<double> &dst,
           boost::any data)
     {
-        std::vector<dealii::parallel::distributed::Vector<double> > sources(0);
+        std::vector<dealii::parallel::distributed::Vector<double>* > sources(0);
         apply(dst, sources, data);
     }
 
@@ -127,7 +127,7 @@ namespace viscosaur
     local_apply(const dealii::MatrixFree<dim> &mf_obj,
                 dealii::parallel::distributed::Vector<double> &dst,
                 const std::vector<
-                    dealii::parallel::distributed::Vector <double> > &src,
+                    dealii::parallel::distributed::Vector<double>* > &src,
                 const std::pair<unsigned int, unsigned int> &cell_range)
     {
         // Ask MatrixFree for cell_range for different

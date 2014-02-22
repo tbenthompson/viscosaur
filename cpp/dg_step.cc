@@ -22,10 +22,12 @@ namespace viscosaur
     {
         TimerOutput::Scope t(pd.computing_timer, "dg_step");
 
-        std::vector<dealii::parallel::distributed::Vector<double> > 
+        std::vector<dealii::parallel::distributed::Vector<double>* > 
             sources(2);
-        sources[0] = soln.old_vel;
-        sources[1] = soln.old_strs;
+        soln.old_vel.update_ghost_values();
+        soln.old_strs.update_ghost_values();
+        sources[0] = &soln.old_vel;
+        sources[1] = &soln.old_strs;
         
         EvalData<dim> data;
         double mu = bp::extract<double>(pd.parameters["shear_modulus"]);
@@ -71,6 +73,8 @@ namespace viscosaur
 
 
         //Forward euler is not the best...
+        soln.cur_strs = 0;
+        soln.cur_vel = 0;
         soln.cur_strs += dsdt;
         soln.cur_vel += dvdt;
         soln.cur_strs *= dt;

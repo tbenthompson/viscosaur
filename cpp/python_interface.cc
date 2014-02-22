@@ -12,7 +12,6 @@
 
 #include "tla.h"
 #include "inv_visc.h"
-#include "scheme.h"
 #include "problem_data.h"
 #include "control.h"
 #include "solution.h"
@@ -103,8 +102,6 @@ BOOST_PYTHON_MODULE(viscosaur)
                 &vc::ProblemData<2>::strs_hanging_node_constraints)
         .def_readonly("vel_matrix_free",
                 &vc::ProblemData<2>::vel_matrix_free);
-
-    class_<vc::Scheme<2>, boost::noncopyable>("Scheme2D", no_init);
 
     class_<vc::OpFactory<2>, boost::noncopyable>("OpFactory2D", no_init);
     class_<vc::StrsProjectionOpFactory<2>, boost::noncopyable,
