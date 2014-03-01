@@ -2,15 +2,51 @@
 #include "problem_data.h"
 #include "solution.h"
 
+#include <deal.II/meshworker/dof_info.h>
+#include <deal.II/meshworker/integration_info.h>
+#include <deal.II/meshworker/simple.h>
+#include <deal.II/meshworker/loop.h>
+
 
 namespace viscosaur
 {
     using namespace dealii;
 
     template <int dim>
-    DGStep<dim>::DGStep(double dt)
+    DGStep<dim>::DGStep(ProblemData<dim> &pd,
+                        double dt)
     {
         this->dt = dt; 
+
+        MeshWorker::IntegrationInfoBox<dim>& info_box = rhs_integrator.info_box;
+        MeshWorker::DoFInfo<dim>& dof_info = rhs_integrator.dof_info;
+        MeshWorker::Assembler::ResidualSimple<Vector<double> >&
+          assembler = rhs_integrator.assembler;
+
+        const unsigned int n_gauss_points = dof_handler.get_fe().degree + 1;
+        info_box.cell_quadrature = pd.quadrature;
+        info_box.face_quadrature = pd.face_quad;
+        info_box.boundary_quadrature = pd.face_quad;
+
+        // Add solution vector to info_box
+        NamedData< Vector<double>* > solution_data;
+        solution_data.add (&solution, "solution");
+        info_box.cell_selector.add     ("solution", true, false, false);
+        info_box.boundary_selector.add ("solution", true, false, false);
+        info_box.face_selector.add     ("solution", true, false, false);
+
+        info_box.initialize_update_flags ();
+        info_box.add_update_flags_all      (update_quadrature_points);
+        info_box.add_update_flags_cell     (update_gradients);
+        info_box.add_update_flags_boundary (update_values);
+        info_box.add_update_flags_face     (update_values);
+
+        info_box.initialize (fe, mapping, solution_data);
+
+        // Attach rhs vector to assembler
+        NamedData<Vector<double>* > rhs;
+        rhs.add (&right_hand_side, "RHS");
+        assembler.initialize (rhs);
     }
 
     template <int dim>
@@ -24,8 +60,6 @@ namespace viscosaur
 
         std::vector<dealii::parallel::distributed::Vector<double>* > 
             sources(2);
-        soln.old_vel.update_ghost_values();
-        soln.old_strs.update_ghost_values();
         sources[0] = &soln.old_vel;
         sources[1] = &soln.old_strs;
         
