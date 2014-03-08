@@ -21,7 +21,7 @@ namespace viscosaur
 
             void reinit();
 
-            void apply_init_cond(dealii::Function<dim> &init_strs,
+            void apply_init_cond(dealii::Function<dim> &init_disp,
                                  dealii::Function<dim> &init_vel);
 
             void output(std::string data_dir,
@@ -34,8 +34,8 @@ namespace viscosaur
 
             void post_refine(Solution<dim> &soln);
 
-            dealii::parallel::distributed::Vector<double> cur_strs;
-            dealii::parallel::distributed::Vector<double> old_strs;
+            dealii::parallel::distributed::Vector<double> cur_disp;
+            dealii::parallel::distributed::Vector<double> old_disp;
 
             dealii::parallel::distributed::Vector<double> cur_vel;
             dealii::parallel::distributed::Vector<double> old_vel;

@@ -18,7 +18,7 @@
 #include "matrix_free_calculation.h"
 #include "init_cond.h"
 #include "op_factory.h"
-#include "dg_step.h"
+#include "stepper.h"
 
 #include <deal.II/base/point.h>
 #include <deal.II/base/function.h>
@@ -114,9 +114,9 @@ BOOST_PYTHON_MODULE(viscosaur)
         .def_readwrite("op_factory", &vc::MatrixFreeCalculation<2>::op_factory)
         .def("apply_function", &vc::MatrixFreeCalculation<2>::apply_function);
 
-    class_<vc::DGStep<2>, boost::noncopyable>("DGStep2D", init<double>())
-        .def("step", &vc::DGStep<2>::step)
-        .def_readwrite("dt", &vc::DGStep<2>::dt);
+    class_<vc::Stepper<2>, boost::noncopyable>("Stepper2D", init<double>())
+        .def("step", &vc::Stepper<2>::step)
+        .def_readwrite("dt", &vc::Stepper<2>::dt);
 
     /* Expose the analytic solution. 
      * The SlipFnc base class is a slightly different boost expose

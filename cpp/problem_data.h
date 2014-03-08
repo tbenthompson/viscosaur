@@ -6,7 +6,7 @@
 #include <deal.II/lac/generic_linear_algebra.h>
 #include <deal.II/lac/petsc_parallel_vector.h>
 #include <deal.II/lac/parallel_vector.h>
-#include <deal.II/fe/fe_dgq.h>
+#include <deal.II/fe/fe_q.h>
 #include <deal.II/fe/fe_system.h>
 #include <deal.II/dofs/dof_handler.h>
 #include <deal.II/base/utilities.h>
@@ -60,19 +60,11 @@ namespace viscosaur
             dealii::parallel::distributed::Triangulation<dim> triangulation;
 
             dealii::DoFHandler<dim>       vel_dof_handler;
-            dealii::FE_DGQArbitraryNodes<dim> vel_fe;
+            dealii::FE_Q<dim> vel_fe;
             dealii::IndexSet              vel_locally_owned_dofs;
             dealii::IndexSet              vel_locally_relevant_dofs;
             dealii::ConstraintMatrix      vel_hanging_node_constraints;
             dealii::MatrixFree<dim>       vel_matrix_free;
-
-            dealii::DoFHandler<dim>       strs_dof_handler;
-            dealii::FESystem<dim>         strs_fe;
-            dealii::IndexSet              strs_locally_owned_dofs;
-            dealii::IndexSet              strs_locally_relevant_dofs;
-            dealii::ConstraintMatrix      strs_hanging_node_constraints;
-            dealii::MatrixFree<dim>       strs_matrix_free;
-
     };
 }
 #endif

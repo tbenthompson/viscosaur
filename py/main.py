@@ -10,11 +10,11 @@ params['min_corner_y'] = -5.0
 params['max_corner_x'] = 5.0
 params['max_corner_y'] = 5.0
 params['t_max'] = 16.0
-params['time_step'] = 0.02
+params['time_step'] = 0.01
 params['test_output'] = False
 params['num_threads'] = 1
 params['fe_degree'] = 2
-params['initial_isotropic_refines'] = 5
+params['initial_isotropic_refines'] = 4
 
 params['fault_depth'] = 1e4
 params['viscosity'] = 5.0e19
@@ -35,18 +35,19 @@ soln.output(params['data_dir'], 'play.', init_vel)
 inv_visc = vc.InvViscosityTLA2D(params)
 inv_rho = 1.0#1.0 / 1e20;
 
-dg = vc.DGStep2D(params['time_step'])
+stepper = vc.Stepper2D(params['time_step'])
 t_max = params['t_max']
 t = 0
 i = 0
 dt = params['time_step']
 while t < t_max:
     soln.start_timestep()
-    dg.step(pd, soln, inv_visc, inv_rho)
-    # if i % 10 == 0:
-    soln.output(params['data_dir'], 'play-' + ("%05d" % i) + '.', init_vel)
+    stepper.step(pd, soln, inv_visc, inv_rho)
+    if i % 25 == 0:
+        soln.output(params['data_dir'], 'play-' + ("%05d" % i) + '.', init_vel)
     t += dt
     i += 1
+    print i
 
 
 

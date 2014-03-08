@@ -28,8 +28,8 @@ namespace viscosaur
     reinit()
     {
         TimerOutput::Scope t(pd->computing_timer, "setup_solution");
-        pd->strs_matrix_free.initialize_dof_vector(cur_strs);
-        pd->strs_matrix_free.initialize_dof_vector(old_strs);
+        pd->vel_matrix_free.initialize_dof_vector(cur_disp);
+        pd->vel_matrix_free.initialize_dof_vector(old_disp);
         pd->vel_matrix_free.initialize_dof_vector(cur_vel);
         pd->vel_matrix_free.initialize_dof_vector(old_vel);
     }
@@ -37,16 +37,16 @@ namespace viscosaur
     template <int dim>
     void
     Solution<dim>::
-    apply_init_cond(Function<dim> &init_strs,
+    apply_init_cond(Function<dim> &init_disp,
                     Function<dim> &init_vel)
     {
         TimerOutput::Scope t(pd->computing_timer, "init_cond");
 
-        MatrixFreeCalculation<dim> mfc(*pd, pd->strs_matrix_free, 
-                pd->strs_hanging_node_constraints);
-        StrsProjectionOpFactory<dim> strs_op_factory;
-        mfc.op_factory = &strs_op_factory;
-        mfc.apply(cur_strs, &init_strs);
+        MatrixFreeCalculation<dim> mfc(*pd, pd->vel_matrix_free, 
+                pd->vel_hanging_node_constraints);
+        VelProjectionOpFactory<dim> disp_op_factory;
+        mfc.op_factory = &disp_op_factory;
+        mfc.apply(cur_disp, &init_disp);
 
         MatrixFreeCalculation<dim> mfc2(*pd, pd->vel_matrix_free, 
                 pd->vel_hanging_node_constraints, true);
@@ -61,7 +61,7 @@ namespace viscosaur
     start_timestep()
     {
         //Flip the solns to retain the old soln.
-        old_strs.swap(cur_strs);
+        old_disp.swap(cur_disp);
         old_vel.swap(cur_vel);
     }
 
@@ -121,14 +121,14 @@ namespace viscosaur
         old_solution_names[0] = "old_szx";
         old_solution_names[1] = "old_szy";
         //Current stresses
-        data_out.add_data_vector(pd->strs_dof_handler, old_strs, old_solution_names);
+        data_out.add_data_vector(pd->vel_dof_handler, old_disp, old_solution_names);
 
         // Output the stresses.
         std::vector<std::string> cur_solution_names(2);
         cur_solution_names[0] = "cur_szx";
         cur_solution_names[1] = "cur_szy";
         //Current stresses
-        data_out.add_data_vector(pd->strs_dof_handler, cur_strs, cur_solution_names);
+        data_out.add_data_vector(pd->vel_dof_handler, cur_disp, cur_solution_names);
                                  
         Vector<float> subdomain(pd->triangulation.n_active_cells());
         unsigned int this_subd = pd->triangulation.locally_owned_subdomain();
@@ -184,22 +184,22 @@ namespace viscosaur
 
         parallel::distributed::SolutionTransfer<dim, 
             parallel::distributed::Vector<double> >*
-            strs_sol_trans = new parallel::distributed::SolutionTransfer<dim, 
-            parallel::distributed::Vector<double> >(pd->strs_dof_handler);    
+            disp_sol_trans = new parallel::distributed::SolutionTransfer<dim, 
+            parallel::distributed::Vector<double> >(pd->vel_dof_handler);    
 
         std::vector<const parallel::distributed::Vector<double>* > vel_vecs(1);
         vel_vecs[0] = &cur_vel;
 
-        std::vector<const parallel::distributed::Vector<double>* > strs_vecs(2);
-        strs_vecs[0] = &cur_strs;
-        strs_vecs[1] = &old_strs;
+        std::vector<const parallel::distributed::Vector<double>* > disp_vecs(2);
+        disp_vecs[0] = &cur_disp;
+        disp_vecs[1] = &old_disp;
         vel_sol_trans->prepare_for_coarsening_and_refinement(vel_vecs);
-        strs_sol_trans->prepare_for_coarsening_and_refinement(strs_vecs);
+        disp_sol_trans->prepare_for_coarsening_and_refinement(disp_vecs);
 
         std::vector<parallel::distributed::SolutionTransfer<dim, 
                 parallel::distributed::Vector<double> >* > retval(2);
         retval[0] = vel_sol_trans;
-        retval[1] = strs_sol_trans;
+        retval[1] = disp_sol_trans;
         sol_trans = retval;
     }
     
@@ -214,10 +214,10 @@ namespace viscosaur
         vel_vecs[0] = &cur_vel;
         soln.sol_trans[0]->interpolate(vel_vecs);
 
-        std::vector<parallel::distributed::Vector<double>* > strs_vecs(2);
-        strs_vecs[0] = &cur_strs;
-        strs_vecs[1] = &old_strs;
-        soln.sol_trans[1]->interpolate(strs_vecs);
+        std::vector<parallel::distributed::Vector<double>* > disp_vecs(2);
+        disp_vecs[0] = &cur_disp;
+        disp_vecs[1] = &old_disp;
+        soln.sol_trans[1]->interpolate(disp_vecs);
         delete soln.sol_trans[0];
         delete soln.sol_trans[1];
     }

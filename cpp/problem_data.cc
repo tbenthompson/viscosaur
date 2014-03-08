@@ -37,10 +37,7 @@ namespace viscosaur
         pcout(std::cout, (Utilities::MPI::this_mpi_process(mpi_comm) == 0)),
         computing_timer(pcout, TimerOutput::summary, TimerOutput::wall_times),
         vel_dof_handler(triangulation),
-        vel_fe(QGaussLobatto<1>(bp::extract<int>(parameters["fe_degree"]) + 1)),
-        strs_dof_handler(triangulation),
-        strs_fe(FE_DGQArbitraryNodes<dim>(
-                    QGaussLobatto<1>(bp::extract<int>(parameters["fe_degree"]) + 1)), dim)
+        vel_fe(QGaussLobatto<1>(bp::extract<int>(parameters["fe_degree"]) + 1))
     {
         TimerOutput::Scope t(computing_timer, "setup_problem_data");
         const std::string filename = bp::extract<std::string>(
@@ -77,7 +74,6 @@ namespace viscosaur
     ProblemData<dim>::~ProblemData()
     {
         vel_dof_handler.clear();
-        strs_dof_handler.clear();
         // std::cout << "Destruction of Problem Data." << std::endl;
     }
 
@@ -91,19 +87,15 @@ namespace viscosaur
         // process has a chunk of the dofs. The process will not be aware of 
         // any dofs outside of the owned dofs and the ghost adjacent dofs.
         vel_dof_handler.distribute_dofs(vel_fe);
-        strs_dof_handler.distribute_dofs(strs_fe);
 
         // Check the dealii faq for more information on dof handling in mpi 
         // processes
         // Set the dofs that this process will actually solve.
         vel_locally_owned_dofs = vel_dof_handler.locally_owned_dofs();
-        strs_locally_owned_dofs = strs_dof_handler.locally_owned_dofs();
 
         // Set the dofs that this process will need to perform solving
         DoFTools::extract_locally_relevant_dofs(vel_dof_handler,
                 vel_locally_relevant_dofs);
-        DoFTools::extract_locally_relevant_dofs(strs_dof_handler,
-                strs_locally_relevant_dofs);
 
         // Create a constraints matrix that just contains the hanging node 
         // constraints. We will copy this matrix later when we need to add other
@@ -114,28 +106,13 @@ namespace viscosaur
                                                 vel_hanging_node_constraints);
         vel_hanging_node_constraints.close();
 
-        strs_hanging_node_constraints.clear();
-        strs_hanging_node_constraints.reinit(strs_locally_relevant_dofs);
-        DoFTools::make_hanging_node_constraints(strs_dof_handler, 
-                                                strs_hanging_node_constraints);
-        strs_hanging_node_constraints.close();
-
         // Also initialize the matrix free objects for any explicit operations
         // we may wish to perform.
-        typename MatrixFree<dim>::AdditionalData additional_data_strs;
-        additional_data_strs.mapping_update_flags = (update_values |
-                                          update_JxW_values |
-                                          update_quadrature_points |
-                                          update_gradients);
-        additional_data_strs.mpi_communicator = mpi_comm;
-
         typename MatrixFree<dim>::AdditionalData additional_data_vel;
         additional_data_vel.mapping_update_flags = update_gradients |
                                                    update_quadrature_points;
         additional_data_vel.mpi_communicator = mpi_comm;
 
-        strs_matrix_free.reinit(strs_dof_handler, strs_hanging_node_constraints,
-                           one_d_quad, additional_data_strs);
         vel_matrix_free.reinit(vel_dof_handler, vel_hanging_node_constraints,
                            one_d_quad, additional_data_vel);
     }
