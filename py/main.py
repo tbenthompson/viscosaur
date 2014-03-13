@@ -4,9 +4,9 @@ import defaults
 import numpy as np
 
 # Set up the parameters to be used.
-# from elastic_params import params, init_mem, init_disp, bc_plate, bc_fault
-from attenuated_waves import params, init_mem, init_disp, bc_plate, bc_fault
-# from quasistatic import params, init_mem, init_disp, bc_plate, bc_fault
+# from elastic_params import params, init_mem, init_disp, bc_plate, bc_fault, inv_visc
+# from attenuated_waves import params, init_mem, init_disp, bc_plate, bc_fault, inv_visc
+from quasistatic import params, init_mem, init_disp, bc_plate, bc_fault, inv_visc
 
 c = controller.Controller(params)
 
@@ -19,8 +19,6 @@ soln = vc.Solution2D(pd)
 # for r in range(restart + 1):
 soln.apply_init_cond(init_mem, init_disp);
 soln.output(params['data_dir'], 'play.', init_disp)
-
-inv_visc = vc.InvViscosityTLA2D(params)
 
 stepper = vc.Stepper2D(pd)
 t_max = params['t_max']

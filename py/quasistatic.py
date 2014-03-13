@@ -20,15 +20,7 @@ params['shear_modulus'] = 30e9
 params['inv_rho'] = 1.0 / (10 ** 23)
 params['plate_rate'] = (40.0 / 1.0e3) / defaults.secs_in_a_year#40 mm/yr
 
-class GaussStress(vc.PyFunction2D):
-    def __init__(self, c):
-        super(GaussStress, self).__init__()
-        self.c = c
-    def get_value(self, x, y, component):
-        return np.exp(-(((x - self.c[0]) ** 2) +
-                        ((y - self.c[1]) ** 2)) / 1000000.0)
 
-# init_mem = GaussStress((0.0, 1e4))
 slip_fnc = vc.CosSlipFnc(params['fault_depth'])
 
 tla = vc.TwoLayerAnalytic(params['fault_slip'],
@@ -37,7 +29,22 @@ tla = vc.TwoLayerAnalytic(params['fault_slip'],
                           params['viscosity'],
                           slip_fnc)
 
-init_mem = vc.InitStress2D(tla)
+class InitMem(vc.PyFunction2D):
+    def __init__(self, init_strs, inv_visc):
+        super(InitMem, self).__init__()
+        self.init_strs = init_strs
+        self.inv_visc = inv_visc
+
+    def get_value(self, x, y, component):
+        strs = self.init_strs.value(vc.Point2D(x, y), component)
+        #TODO: ONLY WORKS FOR LINEAR VISCOELASTIC!
+        inv_visc = self.inv_visc.value_easy(vc.Point2D(x, y), 0.0, 0.0)
+        return strs * inv_visc
+
+inv_visc = vc.InvViscosityTLA2D(params)
+
+init_mem = InitMem(vc.InitStress2D(tla), inv_visc)
+print init_mem.get_value(10000.0, 20000.0, 0)
 
 init_disp = vc.ZeroFunction2D(1)
 

@@ -18,6 +18,8 @@ params['viscosity'] = 5.0e8
 params['shear_modulus'] = 30e9
 params['inv_rho'] = 1.0 / 3000.0
 
+inv_visc = vc.InvViscosityTLA2D(params)
+
 class GaussStress(vc.PyFunction2D):
     def get_value(self, x, y, component):
         return np.exp(-((x ** 2) + (y ** 2)) / 1000000.0)
