@@ -86,7 +86,7 @@ namespace viscosaur
             }
 
             dealii::FEEvaluationGL<dim, fe_degree, dim> 
-                fe_eval(pd.strs_matrix_free);
+                fe_eval(pd.mem_matrix_free);
 
             const unsigned int n_q_points = fe_eval.n_q_points;
 
@@ -124,7 +124,7 @@ namespace viscosaur
             }
 
             dealii::FEEvaluationGL<dim, fe_degree> 
-                fe_eval(pd.vel_matrix_free);
+                fe_eval(pd.disp_matrix_free);
 
             const unsigned int n_q_points = fe_eval.n_q_points;
 
@@ -149,7 +149,7 @@ namespace viscosaur
 
     
     template <int dim, int fe_degree>
-    class StrsProjectionOp
+    class MemProjectionOp
     {
         public:
         void hp_local_apply(ProblemData<dim> &pd, 
@@ -159,10 +159,13 @@ namespace viscosaur
              const std::pair<unsigned int, unsigned int> &cell_range,
              boost::any data)
         {
-            dealii::Function<dim>* fnc = boost::any_cast<dealii::Function<dim>*>(data);
+            dealii::Function<dim>* fnc =
+                boost::any_cast<dealii::Function<dim>*>(data);
             dealii::Point<dim, dealii::VectorizedArray<double> > p_list;
-            dealii::Tensor<1, dim, dealii::VectorizedArray<double> > submit_val;
-            dealii::FEEvaluationGL<dim, fe_degree, dim> fe_eval(pd.strs_matrix_free);
+            dealii::Tensor<1, dim, dealii::VectorizedArray<double> >
+                submit_val;
+            dealii::FEEvaluationGL<dim, fe_degree, dim> fe_eval(
+                    pd.mem_matrix_free);
             const unsigned int n_q_points = fe_eval.n_q_points;
             for (unsigned int cell = cell_range.first; 
                     cell < cell_range.second;
@@ -195,7 +198,7 @@ namespace viscosaur
     };
 
     template <int dim, int fe_degree>
-    class VelProjectionOp
+    class DispProjectionOp
     {
         public:
         void hp_local_apply(ProblemData<dim> &pd, 
@@ -205,10 +208,12 @@ namespace viscosaur
              const std::pair<unsigned int, unsigned int> &cell_range,
              boost::any data)
         {
-            dealii::Function<dim>* fnc = boost::any_cast<dealii::Function<dim>*>(data);
+            dealii::Function<dim>* fnc =
+                boost::any_cast<dealii::Function<dim>*>(data);
             dealii::Point<dim, dealii::VectorizedArray<double> > p_list;
             dealii::VectorizedArray<double> submit_val;
-            dealii::FEEvaluationGL<dim, fe_degree> fe_eval(pd.vel_matrix_free);
+            dealii::FEEvaluationGL<dim, fe_degree> fe_eval(
+                    pd.disp_matrix_free);
             const unsigned int n_q_points = fe_eval.n_q_points;
             for (unsigned int cell = cell_range.first; 
                     cell < cell_range.second;
@@ -238,7 +243,7 @@ namespace viscosaur
     };
 
     //This line creates ProjectionOpFactory
-    VISCOSAUR_OP_FACTORY(StrsProjectionOp);
-    VISCOSAUR_OP_FACTORY(VelProjectionOp);
+    VISCOSAUR_OP_FACTORY(MemProjectionOp);
+    VISCOSAUR_OP_FACTORY(DispProjectionOp);
 }
 #endif

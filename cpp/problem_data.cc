@@ -36,11 +36,12 @@ namespace viscosaur
         face_quad(bp::extract<int>(parameters["fe_degree"]) + 1),
         pcout(std::cout, (Utilities::MPI::this_mpi_process(mpi_comm) == 0)),
         computing_timer(pcout, TimerOutput::summary, TimerOutput::wall_times),
-        vel_dof_handler(triangulation),
-        vel_fe(QGaussLobatto<1>(bp::extract<int>(parameters["fe_degree"]) + 1)),
-        strs_dof_handler(triangulation),
-        strs_fe(FE_DGQArbitraryNodes<dim>(
-                    QGaussLobatto<1>(bp::extract<int>(parameters["fe_degree"]) + 1)), dim)
+        disp_dof_handler(triangulation),
+        disp_fe(QGaussLobatto<1>(
+                    bp::extract<int>(parameters["fe_degree"]) + 1)),
+        mem_dof_handler(triangulation),
+        mem_fe(FE_Q<dim>(QGaussLobatto<1>(
+                        bp::extract<int>(parameters["fe_degree"]) + 1)), dim)
     {
         TimerOutput::Scope t(computing_timer, "setup_problem_data");
         const std::string filename = bp::extract<std::string>(
@@ -76,8 +77,8 @@ namespace viscosaur
     template <int dim>
     ProblemData<dim>::~ProblemData()
     {
-        vel_dof_handler.clear();
-        strs_dof_handler.clear();
+        disp_dof_handler.clear();
+        mem_dof_handler.clear();
         // std::cout << "Destruction of Problem Data." << std::endl;
     }
 
@@ -87,57 +88,60 @@ namespace viscosaur
     init_dofs()
     {
         // Collect dofs from the finite elements for the whole triangulation
-        // Internally, this also does load balancing and makes sure that each   
+        // Internally, this also does load balancing and makes sure that each
         // process has a chunk of the dofs. The process will not be aware of 
         // any dofs outside of the owned dofs and the ghost adjacent dofs.
-        vel_dof_handler.distribute_dofs(vel_fe);
-        strs_dof_handler.distribute_dofs(strs_fe);
+        disp_dof_handler.distribute_dofs(disp_fe);
+        mem_dof_handler.distribute_dofs(mem_fe);
 
         // Check the dealii faq for more information on dof handling in mpi 
-        // processes
-        // Set the dofs that this process will actually solve.
-        vel_locally_owned_dofs = vel_dof_handler.locally_owned_dofs();
-        strs_locally_owned_dofs = strs_dof_handler.locally_owned_dofs();
+        // processes. Set the dofs that this process will actually solve.
+        disp_locally_owned_dofs = disp_dof_handler.locally_owned_dofs();
+        mem_locally_owned_dofs = mem_dof_handler.locally_owned_dofs();
 
         // Set the dofs that this process will need to perform solving
-        DoFTools::extract_locally_relevant_dofs(vel_dof_handler,
-                vel_locally_relevant_dofs);
-        DoFTools::extract_locally_relevant_dofs(strs_dof_handler,
-                strs_locally_relevant_dofs);
+        DoFTools::extract_locally_relevant_dofs(disp_dof_handler,
+                disp_locally_relevant_dofs);
+        DoFTools::extract_locally_relevant_dofs(mem_dof_handler,
+                mem_locally_relevant_dofs);
 
         // Create a constraints matrix that just contains the hanging node 
-        // constraints. We will copy this matrix later when we need to add other
-        // constraints like boundary conditions.
-        vel_hanging_node_constraints.clear();
-        vel_hanging_node_constraints.reinit(vel_locally_relevant_dofs);
-        DoFTools::make_hanging_node_constraints(vel_dof_handler, 
-                                                vel_hanging_node_constraints);
-        vel_hanging_node_constraints.close();
+        // constraints. We will copy this matrix later when we need to add 
+        // other constraints like boundary conditions.
+        disp_hanging_node_constraints.clear();
+        disp_hanging_node_constraints.reinit(disp_locally_relevant_dofs);
+        DoFTools::make_hanging_node_constraints(disp_dof_handler, 
+                                        disp_hanging_node_constraints);
+        disp_hanging_node_constraints.close();
 
-        strs_hanging_node_constraints.clear();
-        strs_hanging_node_constraints.reinit(strs_locally_relevant_dofs);
-        DoFTools::make_hanging_node_constraints(strs_dof_handler, 
-                                                strs_hanging_node_constraints);
-        strs_hanging_node_constraints.close();
+        mem_hanging_node_constraints.clear();
+        mem_hanging_node_constraints.reinit(mem_locally_relevant_dofs);
+        DoFTools::make_hanging_node_constraints(mem_dof_handler, 
+                                        mem_hanging_node_constraints);
+        mem_hanging_node_constraints.close();
 
         // Also initialize the matrix free objects for any explicit operations
         // we may wish to perform.
-        typename MatrixFree<dim>::AdditionalData additional_data_strs;
-        additional_data_strs.mapping_update_flags = (update_values |
+        typename MatrixFree<dim>::AdditionalData additional_data_mem;
+        additional_data_mem.mapping_update_flags = (update_values |
                                           update_JxW_values |
                                           update_quadrature_points |
                                           update_gradients);
-        additional_data_strs.mpi_communicator = mpi_comm;
+        additional_data_mem.mpi_communicator = mpi_comm;
 
-        typename MatrixFree<dim>::AdditionalData additional_data_vel;
-        additional_data_vel.mapping_update_flags = update_gradients |
+        typename MatrixFree<dim>::AdditionalData additional_data_disp;
+        additional_data_disp.mapping_update_flags = update_gradients |
                                                    update_quadrature_points;
-        additional_data_vel.mpi_communicator = mpi_comm;
+        additional_data_disp.mpi_communicator = mpi_comm;
 
-        strs_matrix_free.reinit(strs_dof_handler, strs_hanging_node_constraints,
-                           one_d_quad, additional_data_strs);
-        vel_matrix_free.reinit(vel_dof_handler, vel_hanging_node_constraints,
-                           one_d_quad, additional_data_vel);
+        mem_matrix_free.reinit(mem_dof_handler, 
+                                mem_hanging_node_constraints,
+                                one_d_quad, 
+                                additional_data_mem);
+        disp_matrix_free.reinit(disp_dof_handler, 
+                                disp_hanging_node_constraints,
+                                one_d_quad, 
+                                additional_data_disp);
     }
 
     template <int dim>
@@ -199,7 +203,7 @@ namespace viscosaur
 
     /* Begins the refinement process. Call should be succeeded by calls
      * to the refinement functions in Solution and then by execute_refine.
-     * The refinement_measure parameter must be a velocity field. This 
+     * The refinement_measure parameter must be a scalar field. This 
      * constraint could be relaxed easily with a small amount of coding
      */
     template <int dim>
@@ -215,7 +219,7 @@ namespace viscosaur
         Vector<float> estimated_error_per_cell
             (triangulation.n_active_cells());
         const unsigned int fe_d = bp::extract<int>(parameters["fe_degree"]);
-        KellyErrorEstimator<dim>::estimate(vel_dof_handler,
+        KellyErrorEstimator<dim>::estimate(disp_dof_handler,
                 face_quad,
                 typename FunctionMap<dim>::type(),
                 refinement_measure,
@@ -267,12 +271,14 @@ namespace viscosaur
         //Actually perform the grid adaption.
         triangulation.execute_coarsening_and_refinement();
 
-        //After the triangulation is modified, we need to reinitialize the dofs.
+        //After the triangulation is modified, 
+        //we need to reinitialize the dofs.
         init_dofs();
     }
 
     // ESSENTIAL: explicity define the template types we will use.
-    // Otherwise, the template definition needs to go in the header file, which
+    // Otherwise, 
+    // the template definition needs to go in the header file, which
     // is ugly!
     template class ProblemData<2>;
     template class ProblemData<3>;

@@ -16,7 +16,6 @@
 #include "control.h"
 #include "solution.h"
 #include "matrix_free_calculation.h"
-#include "init_cond.h"
 #include "op_factory.h"
 #include "dg_step.h"
 
@@ -27,6 +26,37 @@
 #include <deal.II/distributed/solution_transfer.h>
 namespace vc = viscosaur;
 
+
+
+class PythonFunction2D: public dealii::Function<2>
+{
+    public:
+        virtual double value(const dealii::Point<2> &p,
+                             const unsigned int component) 
+        {
+            this->get_value(p[0], p[1], component);
+        }
+
+        virtual double value(const dealii::Point<2> &p,
+                             unsigned int component) const
+        {
+            this->get_value(p[0], p[1], component);
+        }
+
+        virtual double get_value(const double x, 
+                             const double y,
+                             const double component) const = 0;
+};
+class PythonFunction2DWrap: public PythonFunction2D,
+                    public boost::python::wrapper<dealii::Function<2> >
+{
+    virtual double get_value(const double x,
+                         const double y,
+                         const double component) const
+    {
+        return this->get_override("get_value")(x, y, component);
+    }
+};
 
 
 /* Note: error: ‘dealii::DoFHandler<dim, spacedim>::DoFHandler(const dealii::
@@ -52,15 +82,18 @@ BOOST_PYTHON_MODULE(viscosaur)
         = &dealii::MatrixFree<2>::initialize_dof_vector;
     class_<dealii::MatrixFree<2>, boost::noncopyable>("MatrixFree2D", no_init)
         .def("initialize_dof_vector", init_dof_vector);
-    class_<dealii::ConstraintMatrix, boost::noncopyable>("ConstraintMatrix", no_init);
-    class_<dealii::parallel::distributed::Vector<double> >("MPIVector", init<>())
+    class_<dealii::ConstraintMatrix, boost::noncopyable>("ConstraintMatrix",
+        no_init);
+    class_<dealii::parallel::distributed::Vector<double> >("MPIVector",
+        init<>())
         .def(self += dealii::parallel::distributed::Vector<double>());
+
+    class_<PythonFunction2DWrap, boost::noncopyable>("PyFunction2D")
+        .def("value", pure_virtual(&PythonFunction2D::get_value));
     
 
     /* Basic viscosaur functions.
      */
-    class_<vc::GaussStress<2>, boost::noncopyable,
-        bases<dealii::Function<2> > >("GaussStress2D", init<>());
     class_<vc::Vc>("Vc", init<boost::python::list, boost::python::dict>())
         .def("get_rank", &vc::Vc::get_rank);
 
@@ -74,8 +107,8 @@ BOOST_PYTHON_MODULE(viscosaur)
         .def("start_timestep", &vc::Solution<2>::start_timestep)
         .def("start_refine", &vc::Solution<2>::start_refine)
         .def("post_refine", &vc::Solution<2>::post_refine)
-        .def_readwrite("cur_vel", &vc::Solution<2>::cur_vel)
-        .def_readwrite("cur_strs", &vc::Solution<2>::cur_strs);
+        .def_readwrite("cur_disp", &vc::Solution<2>::cur_disp)
+        .def_readwrite("cur_mem", &vc::Solution<2>::cur_mem);
 
     // double (vc::InvViscosity<2>::*f_value)(const dealii::Point<2>&,
     //                                        const double)= &vc::InvViscosity<2>::value;
@@ -85,28 +118,23 @@ BOOST_PYTHON_MODULE(viscosaur)
         .def("value", &vc::InvViscosityTLA<2>::value)
         .def("value_easy", &vc::InvViscosityTLA<2>::value_easy)
         .def("strs_deriv", &vc::InvViscosityTLA<2>::strs_deriv);
-    /* Expose the Velocity solver. I separate the 2D and 3D because exposing    
-     * the templating to python is difficult.
-     * boost::noncopyable is required, because the copy constructor of some
-     * of the private members of Velocity are private
-     */ 
 
     class_<vc::ProblemData<2>, boost::noncopyable>("ProblemData2D",
             init<dict&>()) 
         .def("start_refine", &vc::ProblemData<2>::start_refine)
         .def("execute_refine", &vc::ProblemData<2>::execute_refine)
         .def("save_mesh", &vc::ProblemData<2>::save_mesh)
-        .def_readonly("strs_matrix_free",
-                &vc::ProblemData<2>::strs_matrix_free)
-        .def_readonly("strs_hanging_node_constraints",
-                &vc::ProblemData<2>::strs_hanging_node_constraints)
-        .def_readonly("vel_matrix_free",
-                &vc::ProblemData<2>::vel_matrix_free);
+        .def_readonly("mem_matrix_free",
+                &vc::ProblemData<2>::mem_matrix_free)
+        .def_readonly("mem_hanging_node_constraints",
+                &vc::ProblemData<2>::mem_hanging_node_constraints)
+        .def_readonly("disp_matrix_free",
+                &vc::ProblemData<2>::disp_matrix_free);
 
     class_<vc::OpFactory<2>, boost::noncopyable>("OpFactory2D", no_init);
-    class_<vc::StrsProjectionOpFactory<2>, boost::noncopyable,
+    class_<vc::MemProjectionOpFactory<2>, boost::noncopyable,
            bases<vc::OpFactory<2> > >(
-            "StrsProjectionOpFactory2D", init<>());
+            "MemProjectionOpFactory2D", init<>());
     class_<vc::MatrixFreeCalculation<2>, boost::noncopyable>(
             "MatrixFreeCalculation2D", 
             init<vc::ProblemData<2>&, dealii::MatrixFree<2>&, 
@@ -114,9 +142,8 @@ BOOST_PYTHON_MODULE(viscosaur)
         .def_readwrite("op_factory", &vc::MatrixFreeCalculation<2>::op_factory)
         .def("apply_function", &vc::MatrixFreeCalculation<2>::apply_function);
 
-    class_<vc::DGStep<2>, boost::noncopyable>("DGStep2D", init<double>())
-        .def("step", &vc::DGStep<2>::step)
-        .def_readwrite("dt", &vc::DGStep<2>::dt);
+    class_<vc::Stepper<2>, boost::noncopyable>("Stepper2D", init<>())
+        .def("step", &vc::Stepper<2>::step);
 
     /* Expose the analytic solution. 
      * The SlipFnc base class is a slightly different boost expose

@@ -6,7 +6,7 @@
 #include <deal.II/lac/generic_linear_algebra.h>
 #include <deal.II/lac/petsc_parallel_vector.h>
 #include <deal.II/lac/parallel_vector.h>
-#include <deal.II/fe/fe_dgq.h>
+#include <deal.II/fe/fe_q.h>
 #include <deal.II/fe/fe_system.h>
 #include <deal.II/dofs/dof_handler.h>
 #include <deal.II/base/utilities.h>
@@ -40,10 +40,6 @@ namespace viscosaur
                     dealii::parallel::distributed::Vector<double> &soln);
             void execute_refine();
 
-            dealii::CompressedSimpleSparsityPattern* 
-                create_vel_sparsity_pattern(
-                    dealii::ConstraintMatrix &constraints);
-
             void generate_mesh();
             void initial_refinement();
             void save_mesh(const std::string &filename);
@@ -59,19 +55,19 @@ namespace viscosaur
             dealii::TimerOutput           computing_timer;
             dealii::parallel::distributed::Triangulation<dim> triangulation;
 
-            dealii::DoFHandler<dim>       vel_dof_handler;
-            dealii::FE_DGQArbitraryNodes<dim> vel_fe;
-            dealii::IndexSet              vel_locally_owned_dofs;
-            dealii::IndexSet              vel_locally_relevant_dofs;
-            dealii::ConstraintMatrix      vel_hanging_node_constraints;
-            dealii::MatrixFree<dim>       vel_matrix_free;
+            dealii::DoFHandler<dim>       disp_dof_handler;
+            dealii::FE_Q<dim> disp_fe;
+            dealii::IndexSet              disp_locally_owned_dofs;
+            dealii::IndexSet              disp_locally_relevant_dofs;
+            dealii::ConstraintMatrix      disp_hanging_node_constraints;
+            dealii::MatrixFree<dim>       disp_matrix_free;
 
-            dealii::DoFHandler<dim>       strs_dof_handler;
-            dealii::FESystem<dim>         strs_fe;
-            dealii::IndexSet              strs_locally_owned_dofs;
-            dealii::IndexSet              strs_locally_relevant_dofs;
-            dealii::ConstraintMatrix      strs_hanging_node_constraints;
-            dealii::MatrixFree<dim>       strs_matrix_free;
+            dealii::DoFHandler<dim>       mem_dof_handler;
+            dealii::FESystem<dim>         mem_fe;
+            dealii::IndexSet              mem_locally_owned_dofs;
+            dealii::IndexSet              mem_locally_relevant_dofs;
+            dealii::ConstraintMatrix      mem_hanging_node_constraints;
+            dealii::MatrixFree<dim>       mem_matrix_free;
 
     };
 }
