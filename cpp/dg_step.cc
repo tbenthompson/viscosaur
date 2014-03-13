@@ -1,11 +1,8 @@
 #include "dg_step.h"
-#include "problem_data.h"
 #include "solution.h"
+#include "problem_data.h"
 
-#include <deal.II/meshworker/dof_info.h>
-#include <deal.II/meshworker/integration_info.h>
-#include <deal.II/meshworker/simple.h>
-#include <deal.II/meshworker/loop.h>
+#include <deal.II/numerics/vector_tools.h>
 
 
 namespace viscosaur
@@ -13,19 +10,39 @@ namespace viscosaur
     using namespace dealii;
 
     template <int dim>
-    Stepper<dim>::Stepper()
+    Stepper<dim>::Stepper(ProblemData<dim> &p_pd)
     {
+        pd = &p_pd;
     }
 
     template <int dim>
     void
-    Stepper<dim>::step(ProblemData<dim> &pd,
-                      Solution<dim> &soln,
-                      InvViscosity<dim> &iv,
-                      double inv_rho,
-                      double dt)
+    Stepper<dim>::step(Solution<dim> &soln,
+                       InvViscosity<dim> &iv,
+                       double inv_rho,
+                       double dt,
+                       Function<dim>& bc_fault,
+                       Function<dim>& bc_plate)
     {
-        TimerOutput::Scope t(pd.computing_timer, "dg_step");
+        TimerOutput::Scope t(pd->computing_timer, "dg_step");
+
+        disp_constraints = pd->create_disp_constraints();
+        mem_constraints = pd->create_mem_constraints();
+        mem_constraints.close();
+
+        //Boundary 0 is the fault, locked? or rate-state?, sliding at depth?
+        //Boundary 1 is the far-field plate
+        //Boundary 2 is the surface, should be stress free
+        //Boundary 3 is the deep
+        VectorTools::interpolate_boundary_values(pd->disp_dof_handler,
+                0, bc_fault, disp_constraints);
+        VectorTools::interpolate_boundary_values(pd->disp_dof_handler,
+                1, bc_plate, disp_constraints);
+        // VectorTools::interpolate_boundary_values(pd->vel_dof_handler,
+        //         2, *encapsulated_bc, constraints);
+        // VectorTools::interpolate_boundary_values(pd->vel_dof_handler,
+        //         3, *encapsulated_bc, constraints);
+        disp_constraints.close();
 
         std::vector<dealii::parallel::distributed::Vector<double>* > 
             sources(3);
@@ -34,7 +51,7 @@ namespace viscosaur
         sources[2] = &soln.old_mem;
         
         EvalData<dim> data;
-        double mu = bp::extract<double>(pd.parameters["shear_modulus"]);
+        double mu = bp::extract<double>(pd->parameters["shear_modulus"]);
         data.mu = make_vectorized_array(mu);
         data.inv_rho = make_vectorized_array(inv_rho);
         data.C = sqrt(mu / inv_rho);
@@ -50,14 +67,14 @@ namespace viscosaur
         //1. Create the matrix free calculation 
         parallel::distributed::Vector<double> dsdt;
         //2. Initialize the derivative result variable and set it to zero
-        pd.mem_matrix_free.initialize_dof_vector(dsdt);
+        pd->mem_matrix_free.initialize_dof_vector(dsdt);
         dsdt = 0;
 
         //3. Create the matrix free calculator. This object controls the mass
         // matrix and the hanging node constraints. It also directs the actual
         // calculations.
-        MatrixFreeCalculation<dim> mfc(pd, pd.mem_matrix_free, 
-                pd.mem_hanging_node_constraints, false);
+        MatrixFreeCalculation<dim> mfc(*pd, pd->mem_matrix_free, 
+                mem_constraints, false);
         // 4. Set which operator to use.
         // The op factory construct allows the use
         // of a variable finite element degree. It produces an operator 
@@ -69,8 +86,8 @@ namespace viscosaur
 
         // Do it all again for the displacement equation instead of the stress.
         soln.cur_disp = 0;
-        MatrixFreeCalculation<dim> mfc2(pd, pd.disp_matrix_free, 
-                pd.disp_hanging_node_constraints, true);
+        MatrixFreeCalculation<dim> mfc2(*pd, pd->disp_matrix_free, 
+                disp_constraints, true);
         DispEvalDerivFactory<dim> disp_op_factory;
         mfc2.op_factory = &disp_op_factory;
         mfc2.apply(soln.cur_disp, sources, &data);

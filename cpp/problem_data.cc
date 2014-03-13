@@ -106,18 +106,11 @@ namespace viscosaur
                 mem_locally_relevant_dofs);
 
         // Create a constraints matrix that just contains the hanging node 
-        // constraints. We will copy this matrix later when we need to add 
-        // other constraints like boundary conditions.
-        disp_hanging_node_constraints.clear();
-        disp_hanging_node_constraints.reinit(disp_locally_relevant_dofs);
-        DoFTools::make_hanging_node_constraints(disp_dof_handler, 
-                                        disp_hanging_node_constraints);
+        // constraints. 
+        disp_hanging_node_constraints = create_disp_constraints();
         disp_hanging_node_constraints.close();
 
-        mem_hanging_node_constraints.clear();
-        mem_hanging_node_constraints.reinit(mem_locally_relevant_dofs);
-        DoFTools::make_hanging_node_constraints(mem_dof_handler, 
-                                        mem_hanging_node_constraints);
+        mem_hanging_node_constraints = create_mem_constraints();
         mem_hanging_node_constraints.close();
 
         // Also initialize the matrix free objects for any explicit operations
@@ -142,6 +135,28 @@ namespace viscosaur
                                 disp_hanging_node_constraints,
                                 one_d_quad, 
                                 additional_data_disp);
+    }
+
+    template <int dim>
+    ConstraintMatrix ProblemData<dim>::create_mem_constraints()
+    {
+        ConstraintMatrix mem_constraints;
+        mem_constraints.clear();
+        mem_constraints.reinit(mem_locally_relevant_dofs);
+        DoFTools::make_hanging_node_constraints(mem_dof_handler, 
+                                        mem_constraints);
+        return mem_constraints;
+    }
+
+    template <int dim>
+    ConstraintMatrix ProblemData<dim>::create_disp_constraints()
+    {
+        ConstraintMatrix disp_constraints;
+        disp_constraints.clear();
+        disp_constraints.reinit(mem_locally_relevant_dofs);
+        DoFTools::make_hanging_node_constraints(disp_dof_handler, 
+                                        disp_constraints);
+        return disp_constraints;
     }
 
     template <int dim>

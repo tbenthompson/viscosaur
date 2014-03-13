@@ -45,6 +45,8 @@ namespace viscosaur
             void save_mesh(const std::string &filename);
             void load_mesh();
             void init_dofs();
+            dealii::ConstraintMatrix create_disp_constraints();
+            dealii::ConstraintMatrix create_mem_constraints();
 
             boost::python::dict           parameters;
             MPI_Comm                      mpi_comm;

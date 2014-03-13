@@ -9,6 +9,7 @@
 #include <deal.II/fe/fe_values.h>
 #include <deal.II/dofs/dof_handler.h>
 #include <deal.II/base/tensor.h>
+#include <deal.II/base/function.h>
 namespace viscosaur
 {
     template <int dim> class ProblemData;
@@ -137,16 +138,23 @@ namespace viscosaur
     VISCOSAUR_OP_FACTORY(MemEvalDeriv);
     VISCOSAUR_OP_FACTORY(DispEvalDeriv);
 
+    template <int dim> class ProblemData;
+
     template <int dim>
     class Stepper
     {
         public:
-            Stepper();
-            void step(ProblemData<dim> &pd,
-                      Solution<dim> &soln,
+            Stepper(ProblemData<dim> &p_pd);
+            void step(Solution<dim> &soln,
                       InvViscosity<dim> &iv,
                       double inv_rho,
-                      double dt);
+                      double dt,
+                      dealii::Function<dim>& bc_fault,
+                      dealii::Function<dim>& bc_plate);
+
+            ProblemData<dim>* pd;
+            dealii::ConstraintMatrix mem_constraints;
+            dealii::ConstraintMatrix disp_constraints;
     };
 }
 #endif

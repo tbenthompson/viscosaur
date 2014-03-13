@@ -142,7 +142,8 @@ BOOST_PYTHON_MODULE(viscosaur)
         .def_readwrite("op_factory", &vc::MatrixFreeCalculation<2>::op_factory)
         .def("apply_function", &vc::MatrixFreeCalculation<2>::apply_function);
 
-    class_<vc::Stepper<2>, boost::noncopyable>("Stepper2D", init<>())
+    class_<vc::Stepper<2>, boost::noncopyable>
+        ("Stepper2D", init<vc::ProblemData<2>&>())
         .def("step", &vc::Stepper<2>::step);
 
     /* Expose the analytic solution. 
@@ -153,10 +154,11 @@ BOOST_PYTHON_MODULE(viscosaur)
         .def("call", pure_virtual(&vc::TLA::SlipFnc::call));
     // Note the "bases<vc::SlipFnc>" to ensure python understand the 
     // inheritance tree.
-    class_<vc::TLA::ConstantSlipFnc, bases<vc::TLA::SlipFnc> >("ConstantSlipFnc", 
-            init<double>())
+    class_<vc::TLA::ConstantSlipFnc, bases<vc::TLA::SlipFnc> >
+        ("ConstantSlipFnc", init<double>())
         .def("call", &vc::TLA::ConstantSlipFnc::call);
-    class_<vc::TLA::CosSlipFnc, bases<vc::TLA::SlipFnc> >("CosSlipFnc", init<double>())
+    class_<vc::TLA::CosSlipFnc, bases<vc::TLA::SlipFnc> >
+        ("CosSlipFnc", init<double>())
         .def("call", &vc::TLA::CosSlipFnc::call);
 
     class_<vc::TLA::TwoLayerAnalytic, boost::noncopyable>("TwoLayerAnalytic", 

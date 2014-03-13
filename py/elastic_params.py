@@ -1,3 +1,4 @@
+import numpy as np
 import viscosaur as vc
 import defaults
 params = defaults.default_params()
@@ -10,7 +11,7 @@ params['time_step'] = 0.001
 params['test_output'] = False
 params['num_threads'] = 1
 params['fe_degree'] = 2
-params['initial_isotropic_refines'] = 4
+params['initial_isotropic_refines'] = 5
 
 params['fault_depth'] = 1e4
 params['viscosity'] = 5.0e30
@@ -24,3 +25,6 @@ class GaussStress(vc.PyFunction2D):
 init_mem = vc.ZeroFunction2D(2)
 
 init_disp = GaussStress()
+
+bc_plate = vc.ZeroFunction2D(1)
+bc_fault = vc.ZeroFunction2D(1)

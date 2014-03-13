@@ -151,6 +151,7 @@ namespace viscosaur
             // Build the list of filenames to store in the master pvtu file
             std::vector<std::string> files;
             // And the list for the cross-time visit controller file
+            // TODO: Get rid of the static variables!
             static std::vector<std::vector<std::string> > filenames;
             for (unsigned int i=0;
                     i<Utilities::MPI::n_mpi_processes(pd->mpi_comm);
